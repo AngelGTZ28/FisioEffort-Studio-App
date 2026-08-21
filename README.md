@@ -1,1 +1,3 @@
 # FisioEffort-Studio-App
+
+The app for the studio FisioEffort will be an util  tool for the administration of the studio. In this application the managers can consult the number of enrolled children on each class, if the new student have already taken its free-first-class and if the students have already paid its monthly payment. Al this requirements will be together on a modern and efficient app accessible from different devices.
