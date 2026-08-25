@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Tutor, Alumno, Clase, Inscripcion
+from .models import Tutor, Alumno, Clase, Inscripcion, Pago
 
 
 class TutorSerializer(serializers.ModelSerializer):
@@ -20,4 +20,49 @@ class ClaseSerializer(serializers.ModelSerializer):
 class InscripcionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Inscripcion
+        fields = '__all__'
+
+    def validate(self, data):
+        alumno = data.get('alumno')
+        clase = data.get('clase')
+        tipo = data.get('tipo')
+
+        # Buscamos si ya existe una inscripción con este alumno y esta clase
+        if Inscripcion.objects.filter(alumno=alumno, clase=clase).exists():
+            raise serializers.ValidationError({
+                "alumno": f"El alumno ya se encuentra inscrito en la clase de {clase.nombre}."
+            })
+        
+        # Contamos cuántas inscripciones existen para esta clase específica
+        inscritos_actuales = Inscripcion.objects.filter(clase=clase).count()
+        if inscritos_actuales >= clase.capacidad_maxima:
+            raise serializers.ValidationError({
+                "clase": f"Esta clase ya ha alcanzado su capacidad máxima de {clase.capacidad_maxima} alumnos."
+            })
+
+        # 2. Validación de la Clase de Prueba
+        if tipo == 'PRUEBA':
+            if alumno.ha_tomado_clase_prueba:
+                raise serializers.ValidationError({
+                    "tipo": "Operación rechazada: Este alumno ya tomó su clase de prueba gratuita anteriormente."
+                })
+
+        return data
+
+    def create(self, validated_data):
+        # 3. Automatización del Estado del Alumno
+        tipo = validated_data.get('tipo')
+        alumno = validated_data.get('alumno')
+        
+        # Si la inscripción es de prueba y pasó la validación, actualizamos al alumno
+        if tipo == 'PRUEBA':
+            alumno.ha_tomado_clase_prueba = True
+            alumno.save()
+
+        # Finalmente, creamos la inscripción de manera normal
+        return super().create(validated_data)
+
+class PagoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Pago
         fields = '__all__'

@@ -51,3 +51,26 @@ class Inscripcion(models.Model):
 
     def __str__(self):
         return f"{self.alumno.nombre_completo} en {self.clase.nombre}"
+
+class Pago(models.Model):
+    # Conectamos el pago a la inscripción específica del alumno en una clase
+    inscripcion = models.ForeignKey('Inscripcion', on_delete=models.CASCADE, related_name='pagos')
+
+    # max_digits=8 permite hasta 999,999.99 (suficiente para colegiaturas)
+    monto = models.DecimalField(max_digits=8, decimal_places=2)
+
+    # Registra automáticamente el día y la hora exacta en que se hace el pago en el sistema
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+
+    # Para saber qué mes están pagando (ej. "Agosto 2026", "Septiembre 2026")
+    mes_cubierto = models.CharField(max_length=50)
+
+    METODO_OPCIONES = [
+        ('EFECTIVO', 'Efectivo'),
+        ('TARJETA', 'Tarjeta'),
+        ('TRANSFERENCIA', 'Transferencia bancaria'),
+    ]
+    metodo_pago = models.CharField(max_length=20, choices=METODO_OPCIONES, default='EFECTIVO')
+
+    def __str__(self):
+        return f"{self.inscripcion.alumno.nombre_completo} - {self.inscripcion.clase.nombre} ({self.mes_cubierto})"

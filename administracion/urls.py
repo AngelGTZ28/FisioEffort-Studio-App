@@ -10,6 +10,7 @@ router.register(r'tutores', views.TutorViewSet)
 router.register(r'alumnos', views.AlumnoViewSet)
 router.register(r'clases', views.ClaseViewSet)
 router.register(r'inscripciones', views.InscripcionViewSet)
+router.register(r'pagos', views.PagoViewSet)
 
 # Exponemos las rutas para que el proyecto principal las consuma
 urlpatterns = [
