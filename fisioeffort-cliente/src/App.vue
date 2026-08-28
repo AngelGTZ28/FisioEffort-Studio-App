@@ -13,6 +13,7 @@ import { RouterView } from 'vue-router'
       <nav>
         <RouterLink to="/">Dashboard</RouterLink>
         <RouterLink to="/alumnos">Alumnos</RouterLink>
+        <RouterLink to="/tutores">Tutores</RouterLink>
         <span class="admin-badge">Panel de Administración</span>
       </nav>
     </header>

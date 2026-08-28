@@ -1,125 +1,194 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 
 const alumnos = ref([])
-const tutores = ref([]) 
+const tutores = ref([])
+const clases = ref([]) // <-- Nueva variable para las clases
 const cargando = ref(true)
 
-// 1. Agregamos "tutor" al objeto reactivo
+// Control de las pestañas Activos / Inactivos
+const mostrarActivos = ref(true)
+
+// Formularios
 const nuevoAlumno = ref({
-  nombre_completo: '',
-  tutor: '', 
-  fecha_nacimiento: '',
-  ha_tomado_clase_prueba: false
+  nombre_completo: '', tutor: '', fecha_nacimiento: '', ha_tomado_clase_prueba: false
+})
+const busquedaTutor = ref('')
+const mostrarDropdown = ref(false)
+
+// Objeto para la inscripción automática
+const nuevaInscripcion = ref({
+  clase: '',
+  tipo: 'REGULAR' // Puede ser REGULAR o PRUEBA
 })
 
-const cargarAlumnos = async () => {
+// --- COMPUTED PARA FILTROS ---
+const tutoresFiltrados = computed(() => {
+  if (!busquedaTutor.value) return tutores.value
+  return tutores.value.filter(t => t.nombre_completo.toLowerCase().includes(busquedaTutor.value.toLowerCase()))
+})
+
+const alumnosActivos = computed(() => alumnos.value.filter(a => a.activo === true))
+const alumnosInactivos = computed(() => alumnos.value.filter(a => a.activo === false))
+
+// --- FUNCIONES DE CARGA ---
+const cargarDatos = async () => {
   try {
-    const respuesta = await fetch('http://127.0.0.1:8000/api/alumnos/')
-    alumnos.value = await respuesta.json()
-    console.log('Revisando tutor:', alumnos.value)
+    const [resAlumnos, resTutores, resClases] = await Promise.all([
+      fetch('http://127.0.0.1:8000/api/alumnos/'),
+      fetch('http://127.0.0.1:8000/api/tutores/'),
+      fetch('http://127.0.0.1:8000/api/clases/') // <-- Cargamos las clases
+    ])
+    alumnos.value = await resAlumnos.json()
+    tutores.value = await resTutores.json()
+    clases.value = await resClases.json()
     cargando.value = false
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error al cargar datos:', error)
   }
 }
 
-const cargarTutores = async () => {
-  try {
-    // Asegúrate de que esta sea la URL correcta de tu API para los tutores
-    const respuesta = await fetch('http://127.0.0.1:8000/api/tutores/')
-    tutores.value = await respuesta.json()
-  } catch (error) {
-    console.error('Error al cargar tutores:', error)
+const seleccionarTutor = (tutor) => {
+  if (tutor) {
+    nuevoAlumno.value.tutor = tutor.id
+    busquedaTutor.value = tutor.nombre_completo
+  } else {
+    nuevoAlumno.value.tutor = ''
+    busquedaTutor.value = ''
   }
+  mostrarDropdown.value = false
 }
 
+// --- FUNCIÓN UNIFICADA (ALUMNO + INSCRIPCIÓN) ---
 const guardarAlumno = async () => {
   try {
-    // Si el select del tutor está vacío, lo mandamos como null para que Postgres no truene
-    const payload = { ...nuevoAlumno.value }
-    if (payload.tutor === '') {
-      payload.tutor = null
-    }
+    const payloadAlumno = { ...nuevoAlumno.value }
+    if (payloadAlumno.tutor === '') payloadAlumno.tutor = null
 
-    const respuesta = await fetch('http://127.0.0.1:8000/api/alumnos/', {
+    // 1. Creamos al Alumno
+    const resAlumno = await fetch('http://127.0.0.1:8000/api/alumnos/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payloadAlumno)
     })
 
-    if (respuesta.ok) {
+    if (resAlumno.ok) {
+      const alumnoCreado = await resAlumno.json() // Extraemos el ID generado
+
+      // 2. Si eligió una clase, creamos la Inscripción inmediatamente
+      if (nuevaInscripcion.value.clase !== '') {
+        await fetch('http://127.0.0.1:8000/api/inscripciones/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            alumno: alumnoCreado.id,
+            clase: nuevaInscripcion.value.clase,
+            tipo: nuevaInscripcion.value.tipo
+          })
+        })
+      }
+
+      // Limpiamos formularios y recargamos
       nuevoAlumno.value = { nombre_completo: '', tutor: '', fecha_nacimiento: '', ha_tomado_clase_prueba: false }
-      cargarAlumnos()
+      busquedaTutor.value = ''
+      nuevaInscripcion.value = { clase: '', tipo: 'REGULAR' }
+      cargarDatos()
     }
   } catch (error) {
     console.error('Error al guardar:', error)
   }
 }
 
-
-onMounted(async() => {
-  await cargarAlumnos()
-  await cargarTutores()
-  cargando.value = false
-
-})
+onMounted(() => { cargarDatos() })
 </script>
 
 <template>
   <div class="alumnos-container">
-    <div class="header-seccion">
-      <h2>Gestión de <span class="cian">Alumnos</span></h2>
-    </div>
+    <div class="header-seccion"><h2>Gestión de <span class="cian">Alumnos</span></h2></div>
 
     <div class="grid-layout">
-      <!-- Columna Izquierda: Formulario -->
+      <!-- PANEL IZQUIERDO: FORMULARIO -->
       <div class="panel">
         <h3>Nuevo Registro</h3>
         <form @submit.prevent="guardarAlumno" class="formulario">
+          <!-- Tus campos de Nombre, Tutor y Fecha de Nacimiento se quedan igual... -->
           <div class="input-group">
             <label>Nombre Completo</label>
-            <input type="text" v-model="nuevoAlumno.nombre_completo" required placeholder="Ej. Juan Pérez">
+            <input type="text" v-model="nuevoAlumno.nombre_completo" required>
           </div>
           
-          <!-- 3. Agregamos el input visual para el Tutor -->
-          <div class="input-group">
+          <div class="input-group buscador-personalizado">
             <label>Tutor (Opcional)</label>
-            <select v-model="nuevoAlumno.tutor" class="select-oscuro">
-              <option value="">-- Sin tutor / Es mayor de edad --</option>
-              <option v-for="tutor in tutores" :key="tutor.id" :value="tutor.id">
+            <input type="text" v-model="busquedaTutor" @focus="mostrarDropdown = true" class="input-busqueda">
+            <ul v-if="mostrarDropdown" class="dropdown-lista">
+              <li @click="seleccionarTutor(null)" class="opcion-nula">-- Sin tutor --</li>
+              <li v-for="tutor in tutoresFiltrados" :key="tutor.id" @click="seleccionarTutor(tutor)">
                 {{ tutor.nombre_completo }}
+              </li>
+            </ul>
+            <span v-if="mostrarDropdown" class="btn-cerrar" @click="mostrarDropdown = false">Cerrar</span>
+          </div>
+
+          <div class="input-group">
+            <label>Fecha Nacimiento</label>
+            <input type="date" v-model="nuevoAlumno.fecha_nacimiento" required>
+          </div>
+
+          <hr class="separador">
+          <h4 class="subtitulo-form">Asignación de Clase (Opcional)</h4>
+
+          <!-- NUEVOS CAMPOS DE INSCRIPCIÓN -->
+          <div class="input-group">
+            <label>Seleccionar Clase</label>
+            <select v-model="nuevaInscripcion.clase" class="input-busqueda">
+              <option value="">-- No inscribir por ahora --</option>
+              <option v-for="clase in clases" :key="clase.id" :value="clase.id">
+                {{ clase.nombre }} (Cupo: {{ clase.capacidad_maxima }})
               </option>
             </select>
           </div>
 
-          <div class="input-group">
-            <label>Fecha de Nacimiento</label>
-            <input type="date" v-model="nuevoAlumno.fecha_nacimiento" required>
+          <div class="input-group" v-if="nuevaInscripcion.clase !== ''">
+            <label>Tipo de Inscripción</label>
+            <select v-model="nuevaInscripcion.tipo" class="input-busqueda">
+              <option value="REGULAR">Regular (Pago normal)</option>
+              <option value="PRUEBA">Clase de Prueba</option>
+            </select>
           </div>
 
-          <div class="input-group checkbox">
-            <input type="checkbox" v-model="nuevoAlumno.ha_tomado_clase_prueba" id="prueba">
-            <label for="prueba">¿Ya tomó clase de prueba?</label>
-          </div>
-
-          <button type="submit" class="btn-guardar">Registrar Alumno</button>
+          <button type="submit" class="btn-guardar">Registrar e Inscribir</button>
         </form>
       </div>
 
-      <!-- Columna Derecha: Lista -->
+      <!-- PANEL DERECHO: LISTA Y FILTROS -->
       <div class="panel">
-        <h3>Alumnos Activos</h3>
+        <div class="header-lista">
+          <h3>Directorio</h3>
+          <!-- BOTONES DE FILTRO -->
+          <div class="tabs">
+            <button :class="{ activo: mostrarActivos }" @click="mostrarActivos = true">Activos</button>
+            <button :class="{ activo: !mostrarActivos }" @click="mostrarActivos = false">Inactivos</button>
+          </div>
+        </div>
+
         <p v-if="cargando">Cargando datos...</p>
         <ul v-else class="lista">
-          <li v-for="alumno in alumnos" :key="alumno.id">
+          <!-- Iteramos sobre la lista filtrada dependiendo del botón presionado -->
+          <li v-for="alumno in (mostrarActivos ? alumnosActivos : alumnosInactivos)" :key="alumno.id">
             <div class="info-alumno">
-              <span class="nombre">{{ alumno.nombre_completo }}</span>
-              <!-- 4. Mostramos el tutor en la lista solo si existe -->
+              <span class="nombre" :class="{ tachado: !alumno.activo }">{{ alumno.nombre_completo }}</span>
               <span v-if="alumno.nombre_tutor" class="tutor-info">Tutor: {{ alumno.nombre_tutor }}</span>
-              <span class="fecha">Nacimiento: {{ alumno.fecha_nacimiento }}</span>
+              
+              <!-- NUEVO: MOSTRAR LAS CLASES -->
+              <div class="badges-clases">
+                <span v-if="alumno.clases_inscritas.length === 0" class="badge-gris">Sin clase asignada</span>
+                <span v-for="(clase, index) in alumno.clases_inscritas" :key="index" class="badge-clase">
+                  {{ clase }}
+                </span>
+              </div>
             </div>
-            <span v-if="alumno.ha_tomado_clase_prueba" class="badge">Clase de prueba</span>
+            <!-- Si está inactivo, le ponemos un badge rojo -->
+            <span v-if="!alumno.activo" class="badge-rojo">Baja</span>
           </li>
         </ul>
       </div>
@@ -211,4 +280,93 @@ input[type="text"]:focus, input[type="date"]:focus {
 .select-oscuro:focus {
   border-color: #00c3e3;
 }
+
+/* Estilos del Buscador de Tutores */
+.buscador-personalizado {
+  position: relative;
+}
+
+.input-busqueda {
+  background-color: #23233b;
+  border: 1px solid #33334d;
+  color: white;
+  padding: 0.8rem;
+  border-radius: 6px;
+  outline: none;
+  width: 100%;
+}
+.input-busqueda:focus {
+  border-color: #00c3e3; /* Resalte en cian */
+}
+
+.dropdown-lista {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  background-color: #1a1a2e; /* Fondo oscuro marino */
+  border: 1px solid #33334d;
+  border-radius: 6px;
+  margin-top: 0.3rem;
+  padding: 0;
+  list-style: none;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+
+.dropdown-lista li {
+  padding: 0.8rem;
+  cursor: pointer;
+  border-bottom: 1px solid #23233b;
+  color: white;
+}
+
+.dropdown-lista li:hover {
+  background-color: #8a2be2; /* Resalte en magenta al pasar el mouse */
+}
+
+.opcion-nula {
+  color: #a0a0b0 !important;
+  font-style: italic;
+}
+
+.sin-resultados {
+  color: #ff4d4d !important;
+  cursor: default;
+}
+.sin-resultados:hover {
+  background-color: transparent !important;
+}
+
+.btn-cerrar {
+  font-size: 0.8rem;
+  color: #ff4d4d;
+  cursor: pointer;
+  text-align: right;
+  margin-top: 0.3rem;
+}
+
+.separador { border: none; border-top: 1px solid #33334d; margin: 1rem 0; }
+.subtitulo-form { color: #8a2be2; margin-bottom: 0.5rem; font-size: 0.95rem; }
+
+.header-lista { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+.tabs { display: flex; gap: 0.5rem; }
+.tabs button {
+  background: transparent;
+  color: #a0a0b0;
+  border: 1px solid #33334d;
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tabs button.activo { background-color: #00c3e3; color: #12121a; border-color: #00c3e3; font-weight: bold; }
+
+.badges-clases { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
+.badge-clase { background-color: #2e8b57; color: white; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 12px; }
+.badge-gris { background-color: #33334d; color: #a0a0b0; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 12px; }
+.badge-rojo { background-color: #ff4d4d; color: white; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 12px; }
+.tachado { text-decoration: line-through; opacity: 0.6; }
 </style>

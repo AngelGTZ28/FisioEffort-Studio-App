@@ -9,6 +9,8 @@ class TutorSerializer(serializers.ModelSerializer):
 
 class AlumnoSerializer(serializers.ModelSerializer):
     nombre_tutor = serializers.CharField(source='tutor.nombre_completo', read_only=True, allow_null=True)
+    clases_inscritas = serializers.SerializerMethodField()
+
     class Meta:
         model = Alumno
         fields = [
@@ -18,8 +20,12 @@ class AlumnoSerializer(serializers.ModelSerializer):
             'ha_tomado_clase_prueba',
             'activo',
             'tutor',
-            'nombre_tutor',  # Campo adicional para mostrar el nombre del tutor
+            'nombre_tutor',
+            'clases_inscritas'
         ]
+    def get_clases_inscritas(self, obj):
+        inscripciones = Inscripcion.objects.filter(alumno=obj)
+        return [inscripcion.clase.nombre for inscripcion in inscripciones]
 
 class ClaseSerializer(serializers.ModelSerializer):
     class Meta:
