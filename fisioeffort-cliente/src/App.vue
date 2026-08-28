@@ -11,6 +11,8 @@ import { RouterView } from 'vue-router'
         <h1>Fisio<span class="cian">Effort</span> <span class="morado">Studio</span></h1>
       </div>
       <nav>
+        <RouterLink to="/">Dashboard</RouterLink>
+        <RouterLink to="/alumnos">Alumnos</RouterLink>
         <span class="admin-badge">Panel de Administración</span>
       </nav>
     </header>
@@ -72,4 +74,9 @@ body {
 .main-content {
   padding: 2rem;
 }
+
+.enlaces { display: flex; gap: 1.5rem; align-items: center; }
+.enlaces a { color: #a0a0b0; text-decoration: none; font-weight: bold; }
+.enlaces a:hover { color: #00c3e3; }
+.enlaces a.router-link-active { color: #00c3e3; border-bottom: 2px solid #00c3e3; }
 </style>

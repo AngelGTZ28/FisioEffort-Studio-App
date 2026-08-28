@@ -8,9 +8,18 @@ class TutorSerializer(serializers.ModelSerializer):
         fields = '__all__' # Esto le dice que convierta todos los campos de la tabla a JSON
 
 class AlumnoSerializer(serializers.ModelSerializer):
+    nombre_tutor = serializers.CharField(source='tutor.nombre_completo', read_only=True, allow_null=True)
     class Meta:
         model = Alumno
-        fields = '__all__'
+        fields = [
+            'id',
+            'nombre_completo',
+            'fecha_nacimiento',
+            'ha_tomado_clase_prueba',
+            'activo',
+            'tutor',
+            'nombre_tutor',  # Campo adicional para mostrar el nombre del tutor
+        ]
 
 class ClaseSerializer(serializers.ModelSerializer):
     class Meta:
