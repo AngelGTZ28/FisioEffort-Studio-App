@@ -28,9 +28,27 @@ class AlumnoSerializer(serializers.ModelSerializer):
         return [inscripcion.clase.nombre for inscripcion in inscripciones]
 
 class ClaseSerializer(serializers.ModelSerializer):
+    alumnos_inscritos = serializers.SerializerMethodField()
+    lugares_disponibles = serializers.SerializerMethodField()
+
     class Meta:
         model = Clase
-        fields = '__all__'
+        fields = [
+            'id',
+            'nombre',
+            'capacidad_maxima',
+            'alumnos_inscritos',
+            'lugares_disponibles'
+        ]
+
+    def get_alumnos_inscritos(self, obj):
+        inscripciones = Inscripcion.objects.filter(clase=obj, alumno__activo=True)
+        return [inscripcion.alumno.nombre_completo for inscripcion in inscripciones]
+
+    def get_lugares_disponibles(self, obj):
+        # ¡Aquí estaba el detalle! Cambiamos 'self.get_alumnos_inscritos' por 'Inscripcion.objects.filter'
+        inscritos = Inscripcion.objects.filter(clase=obj, alumno__activo=True).count()
+        return obj.capacidad_maxima - inscritos
 
 class InscripcionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -81,3 +99,5 @@ class PagoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pago
         fields = '__all__'
+
+

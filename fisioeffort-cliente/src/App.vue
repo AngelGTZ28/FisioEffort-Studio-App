@@ -14,6 +14,7 @@ import { RouterView } from 'vue-router'
         <RouterLink to="/">Dashboard</RouterLink>
         <RouterLink to="/alumnos">Alumnos</RouterLink>
         <RouterLink to="/tutores">Tutores</RouterLink>
+        <RouterLink to="/clases">Clases</RouterLink>
         <span class="admin-badge">Panel de Administración</span>
       </nav>
     </header>

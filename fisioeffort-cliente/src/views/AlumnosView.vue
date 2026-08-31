@@ -99,6 +99,31 @@ const guardarAlumno = async () => {
   }
 }
 
+// --- FUNCIÓN PARA DAR DE BAJA / REACTIVAR ---
+const cambiarEstadoAlumno = async (alumno) => {
+  // Confirmación por seguridad (opcional pero recomendada)
+  const accion = alumno.activo ? 'dar de baja' : 'reactivar'
+  if (!confirm(`¿Estás seguro de que deseas ${accion} a ${alumno.nombre_completo}?`)) return
+
+  try {
+    const respuesta = await fetch(`http://127.0.0.1:8000/api/alumnos/${alumno.id}/`, {
+      method: 'PATCH', // Usamos PATCH porque solo actualizaremos un campo, no todo el registro
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ activo: !alumno.activo }) // Invertimos su estado actual
+    })
+
+    if (respuesta.ok) {
+      cargarDatos() // Recargamos la lista para que desaparezca de los activos
+    } else {
+      console.error('Error del servidor al actualizar')
+    }
+  } catch (error) {
+    console.error('Error de red al cambiar estado:', error)
+  }
+}
+
 onMounted(() => { cargarDatos() })
 </script>
 
@@ -188,7 +213,16 @@ onMounted(() => { cargarDatos() })
               </div>
             </div>
             <!-- Si está inactivo, le ponemos un badge rojo -->
-            <span v-if="!alumno.activo" class="badge-rojo">Baja</span>
+            <div class="acciones-alumno">
+              <span v-if="!alumno.activo" class="badge-rojo">Baja</span>
+              <button 
+                @click="cambiarEstadoAlumno(alumno)" 
+                class="btn-estado" 
+                :class="alumno.activo ? 'btn-peligro' : 'btn-exito'"
+              >
+                {{ alumno.activo ? 'Dar de baja' : 'Reactivar' }}
+              </button>
+            </div>
           </li>
         </ul>
       </div>
@@ -369,4 +403,26 @@ input[type="text"]:focus, input[type="date"]:focus {
 .badge-gris { background-color: #33334d; color: #a0a0b0; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 12px; }
 .badge-rojo { background-color: #ff4d4d; color: white; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 12px; }
 .tachado { text-decoration: line-through; opacity: 0.6; }
+
+/* Estilos para el botón de Baja/Reactivar */
+.acciones-alumno { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; }
+
+.btn-estado {
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  cursor: pointer;
+  color: white;
+  transition: opacity 0.2s;
+}
+.btn-estado:hover { opacity: 0.8; }
+
+.btn-peligro { background-color: transparent; border: 1px solid #ff4d4d; color: #ff4d4d; }
+.btn-peligro:hover { background-color: #ff4d4d; color: white; }
+
+.btn-exito { background-color: transparent; border: 1px solid #2e8b57; color: #2e8b57; }
+.btn-exito:hover { background-color: #2e8b57; color: white; }
+
 </style>
