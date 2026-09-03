@@ -20,17 +20,17 @@ The app for the FisioEffort studio will be a useful tool for its administration.
 Para levantar el proyecto desde cero en cualquier equipo sin conflictos de dependencias:
 
 ### 1. Clonar el repositorio
-```
+```bash
 git clone <URL_DEL_REPOSITORIO>
 cd FisioEffort-Studio-App
 ```
 
 ### 2. Configuración del Backend (Django)
 Asegúrate de tener instalado Python y PostgreSQL.
-
+```bash
 # 1. Crear y activar el entorno virtual
 python -m venv .venv
-# En Windows: .venv\Scripts\activate 
+.venv\Scripts\Activate.ps1 
 
 # 2. Instalar dependencias exactas
 pip install -r requirements.txt
@@ -40,12 +40,15 @@ python manage.py migrate
 
 # 4. Iniciar el servidor
 python manage.py runserver
-
+```
 ### 3. Configuración del Frontend (Vue + Vite)
-En una nueva terminal, entra a la carpeta de tu frontend.
+En una nueva terminal, entra a la carpeta de fissioeffort-cliente.
+
+```bash
 
 # 1. Instalar dependencias (usando flag legacy para evitar conflictos estrictos de linting)
 npm install --legacy-peer-deps
 
 # 2. Levantar el servidor de desarrollo
 npm run dev
+```
