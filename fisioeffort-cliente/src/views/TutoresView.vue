@@ -48,7 +48,8 @@ onMounted(() => {
 <template>
   <div class="tutores-container">
     <div class="header-seccion">
-      <h2>Gestión de <span class="magenta">Tutores</span></h2>
+      <h2>Gestión de <span class="morado">Tutores</span></h2>
+      <p class="subtitulo">Registra tutores y consulta su información de contacto.</p>
     </div>
 
     <div class="grid-layout">
@@ -60,7 +61,7 @@ onMounted(() => {
             <label>Nombre Completo</label>
             <input type="text" v-model="nuevoTutor.nombre_completo" required placeholder="Ej. María López">
           </div>
-          
+
           <div class="input-group">
             <label>Teléfono (Opcional)</label>
             <input type="text" v-model="nuevoTutor.telefono" placeholder="Ej. 449 123 4567">
@@ -68,7 +69,7 @@ onMounted(() => {
 
           <div class="input-group">
             <label>Correo Electrónico (Opcional)</label>
-            <input type="correo electronico" v-model="nuevoTutor.correo" placeholder="correo@ejemplo.com">
+            <input type="email" v-model="nuevoTutor.correo" placeholder="correo@ejemplo.com">
           </div>
 
           <button type="submit" class="btn-guardar">Guardar Tutor</button>
@@ -78,7 +79,8 @@ onMounted(() => {
       <!-- Columna Derecha: Lista -->
       <div class="panel">
         <h3>Directorio de Tutores</h3>
-        <p v-if="cargando">Cargando datos...</p>
+        <p v-if="cargando" class="cargando">Cargando datos...</p>
+        <p v-else-if="tutores.length === 0" class="vacio">Aún no hay tutores registrados.</p>
         <ul v-else class="lista">
           <li v-for="tutor in tutores" :key="tutor.id">
             <div class="info-tutor">
@@ -96,13 +98,13 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Reciclando los estilos flama de tu tema oscuro */
 .tutores-container { padding: 1rem; }
 h2 { font-size: 2rem; }
-.magenta { color: #8a2be2; } /* Cambiamos el acento a magenta para diferenciar de alumnos */
+.morado { color: #8a2be2; }
 .header-seccion { margin-bottom: 2rem; }
+.subtitulo { color: #a0a0b0; margin-top: 0.35rem; }
 
-.grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+.grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
 
 .panel {
   background-color: #1a1a2e;
@@ -124,6 +126,7 @@ input {
   padding: 0.8rem;
   border-radius: 6px;
   outline: none;
+  width: 100%;
 }
 input:focus { border-color: #8a2be2; }
 
@@ -139,6 +142,15 @@ input:focus { border-color: #8a2be2; }
 }
 .btn-guardar:hover { opacity: 0.8; }
 
+.cargando {
+  color: #8a2be2;
+  font-style: italic;
+}
+.vacio {
+  color: #a0a0b0;
+  font-style: italic;
+}
+
 .lista { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 1rem; }
 .lista li {
   background-color: #23233b;
@@ -147,8 +159,9 @@ input:focus { border-color: #8a2be2; }
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
 }
-.info-tutor { display: flex; flex-direction: column; gap: 0.2rem; }
+.info-tutor { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
 .nombre { font-weight: bold; color: white; }
 .contacto { font-size: 0.8rem; color: #a0a0b0; }
 .id-badge {
@@ -158,5 +171,12 @@ input:focus { border-color: #8a2be2; }
   padding: 0.3rem 0.6rem;
   border-radius: 12px;
   font-weight: bold;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .grid-layout {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

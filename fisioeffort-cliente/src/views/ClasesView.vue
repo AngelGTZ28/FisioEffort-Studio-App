@@ -46,7 +46,8 @@ onMounted(() => {
 <template>
   <div class="clases-container">
     <div class="header-seccion">
-      <h2>Gestión de <span class="magenta">Clases</span></h2>
+      <h2>Gestión de <span class="morado">Clases</span></h2>
+      <p class="subtitulo">Crea grupos y consulta su cupo disponible.</p>
     </div>
 
     <div class="grid-layout">
@@ -58,7 +59,7 @@ onMounted(() => {
             <label>Nombre de la Clase (o Grupo)</label>
             <input type="text" v-model="nuevaClase.nombre" required placeholder="Ej. Rehabilitación 10:00 AM">
           </div>
-          
+
           <div class="input-group">
             <label>Capacidad Máxima de Alumnos</label>
             <input type="number" v-model="nuevaClase.capacidad_maxima" required min="1">
@@ -71,8 +72,9 @@ onMounted(() => {
       <!-- Columna Derecha: Lista de Clases -->
       <div class="panel">
         <h3>Grupos Activos</h3>
-        <p v-if="cargando">Cargando datos...</p>
-        
+        <p v-if="cargando" class="cargando">Cargando datos...</p>
+        <p v-else-if="clases.length === 0" class="vacio">Aún no hay clases creadas.</p>
+
         <div v-else class="grid-clases">
           <!-- Tarjeta por cada clase -->
           <div v-for="clase in clases" :key="clase.id" class="tarjeta-clase">
@@ -82,7 +84,7 @@ onMounted(() => {
                 {{ clase.lugares_disponibles }} lugares libres
               </span>
             </div>
-            
+
             <div class="info-cupo">
               <p>Capacidad: {{ clase.capacidad_maxima }} alumnos</p>
             </div>
@@ -107,10 +109,11 @@ onMounted(() => {
 <style scoped>
 .clases-container { padding: 1rem; }
 h2 { font-size: 2rem; }
-.magenta { color: #8a2be2; }
+.morado { color: #8a2be2; }
 .header-seccion { margin-bottom: 2rem; }
+.subtitulo { color: #a0a0b0; margin-top: 0.35rem; }
 
-.grid-layout { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; }
+.grid-layout { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: start; }
 
 .panel {
   background-color: #1a1a2e;
@@ -132,6 +135,7 @@ input {
   padding: 0.8rem;
   border-radius: 6px;
   outline: none;
+  width: 100%;
 }
 input:focus { border-color: #8a2be2; }
 
@@ -147,18 +151,27 @@ input:focus { border-color: #8a2be2; }
 }
 .btn-guardar:hover { opacity: 0.8; }
 
+.cargando {
+  color: #8a2be2;
+  font-style: italic;
+}
+.vacio {
+  color: #a0a0b0;
+  font-style: italic;
+}
+
 /* Tarjetas de Clases */
-.grid-clases { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+.grid-clases { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
 .tarjeta-clase {
   background-color: #23233b;
   padding: 1.5rem;
   border-radius: 8px;
   border-left: 4px solid #00c3e3;
 }
-.header-tarjeta { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+.header-tarjeta { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 1rem; }
 .header-tarjeta h4 { margin: 0; color: white; font-size: 1.1rem; }
 
-.badge { font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 12px; font-weight: bold; }
+.badge { font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 12px; font-weight: bold; white-space: nowrap; }
 .disponible { background-color: #2e8b57; color: white; }
 .lleno { background-color: #ff4d4d; color: white; }
 
@@ -167,4 +180,10 @@ input:focus { border-color: #8a2be2; }
 .alumnos-list { display: flex; flex-wrap: wrap; gap: 0.5rem; border-top: 1px solid #33334d; padding-top: 1rem; }
 .badge-alumno { background-color: #33334d; color: #00c3e3; font-size: 0.75rem; padding: 0.3rem 0.7rem; border-radius: 12px; }
 .sin-alumnos { color: #a0a0b0; font-size: 0.85rem; font-style: italic; }
+
+@media (max-width: 900px) {
+  .grid-layout {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

@@ -96,8 +96,21 @@ class InscripcionSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 class PagoSerializer(serializers.ModelSerializer):
+    # Campos de solo lectura para mandar datos limpios al frontend
+    alumno_nombre = serializers.CharField(source='inscripcion.alumno.nombre_completo', read_only=True)
+    clase_nombre = serializers.CharField(source='inscripcion.clase.nombre', read_only=True)
+
     class Meta:
         model = Pago
-        fields = '__all__'
+        fields = [
+            'id', 
+            'inscripcion', 
+            'alumno_nombre', 
+            'clase_nombre', 
+            'monto', 
+            'fecha_registro', 
+            'mes_cubierto', 
+            'metodo_pago'
+        ]
 
 

@@ -19,5 +19,5 @@ class InscripcionViewSet(viewsets.ModelViewSet):
     serializer_class = InscripcionSerializer
 
 class PagoViewSet(viewsets.ModelViewSet):
-    queryset = Pago.objects.all()
+    queryset = Pago.objects.all().order_by('-fecha_registro') # Los pagos más recientes primero
     serializer_class = PagoSerializer

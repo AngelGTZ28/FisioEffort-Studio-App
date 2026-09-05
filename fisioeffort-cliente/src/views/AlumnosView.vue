@@ -129,24 +129,29 @@ onMounted(() => { cargarDatos() })
 
 <template>
   <div class="alumnos-container">
-    <div class="header-seccion"><h2>Gestión de <span class="cian">Alumnos</span></h2></div>
+    <div class="header-seccion">
+      <h2>Gestión de <span class="cian">Alumnos</span></h2>
+      <p class="subtitulo">Registra alumnos nuevos y administra el directorio.</p>
+    </div>
 
     <div class="grid-layout">
       <!-- PANEL IZQUIERDO: FORMULARIO -->
       <div class="panel">
         <h3>Nuevo Registro</h3>
         <form @submit.prevent="guardarAlumno" class="formulario">
-          <!-- Tus campos de Nombre, Tutor y Fecha de Nacimiento se quedan igual... -->
           <div class="input-group">
             <label>Nombre Completo</label>
             <input type="text" v-model="nuevoAlumno.nombre_completo" required>
           </div>
-          
+
           <div class="input-group buscador-personalizado">
             <label>Tutor (Opcional)</label>
             <input type="text" v-model="busquedaTutor" @focus="mostrarDropdown = true" class="input-busqueda">
             <ul v-if="mostrarDropdown" class="dropdown-lista">
               <li @click="seleccionarTutor(null)" class="opcion-nula">-- Sin tutor --</li>
+              <li v-if="tutoresFiltrados.length === 0" class="sin-resultados">
+                No se encontraron tutores
+              </li>
               <li v-for="tutor in tutoresFiltrados" :key="tutor.id" @click="seleccionarTutor(tutor)">
                 {{ tutor.nombre_completo }}
               </li>
@@ -162,7 +167,6 @@ onMounted(() => { cargarDatos() })
           <hr class="separador">
           <h4 class="subtitulo-form">Asignación de Clase (Opcional)</h4>
 
-          <!-- NUEVOS CAMPOS DE INSCRIPCIÓN -->
           <div class="input-group">
             <label>Seleccionar Clase</label>
             <select v-model="nuevaInscripcion.clase" class="input-busqueda">
@@ -189,22 +193,25 @@ onMounted(() => { cargarDatos() })
       <div class="panel">
         <div class="header-lista">
           <h3>Directorio</h3>
-          <!-- BOTONES DE FILTRO -->
           <div class="tabs">
             <button :class="{ activo: mostrarActivos }" @click="mostrarActivos = true">Activos</button>
             <button :class="{ activo: !mostrarActivos }" @click="mostrarActivos = false">Inactivos</button>
           </div>
         </div>
 
-        <p v-if="cargando">Cargando datos...</p>
+        <p v-if="cargando" class="cargando">Cargando datos...</p>
+        <p
+          v-else-if="(mostrarActivos ? alumnosActivos : alumnosInactivos).length === 0"
+          class="vacio"
+        >
+          {{ mostrarActivos ? 'No hay alumnos activos por ahora.' : 'No hay alumnos dados de baja.' }}
+        </p>
         <ul v-else class="lista">
-          <!-- Iteramos sobre la lista filtrada dependiendo del botón presionado -->
           <li v-for="alumno in (mostrarActivos ? alumnosActivos : alumnosInactivos)" :key="alumno.id">
             <div class="info-alumno">
               <span class="nombre" :class="{ tachado: !alumno.activo }">{{ alumno.nombre_completo }}</span>
               <span v-if="alumno.nombre_tutor" class="tutor-info">Tutor: {{ alumno.nombre_tutor }}</span>
-              
-              <!-- NUEVO: MOSTRAR LAS CLASES -->
+
               <div class="badges-clases">
                 <span v-if="alumno.clases_inscritas.length === 0" class="badge-gris">Sin clase asignada</span>
                 <span v-for="(clase, index) in alumno.clases_inscritas" :key="index" class="badge-clase">
@@ -212,12 +219,11 @@ onMounted(() => { cargarDatos() })
                 </span>
               </div>
             </div>
-            <!-- Si está inactivo, le ponemos un badge rojo -->
             <div class="acciones-alumno">
               <span v-if="!alumno.activo" class="badge-rojo">Baja</span>
-              <button 
-                @click="cambiarEstadoAlumno(alumno)" 
-                class="btn-estado" 
+              <button
+                @click="cambiarEstadoAlumno(alumno)"
+                class="btn-estado"
                 :class="alumno.activo ? 'btn-peligro' : 'btn-exito'"
               >
                 {{ alumno.activo ? 'Dar de baja' : 'Reactivar' }}
@@ -235,11 +241,13 @@ onMounted(() => { cargarDatos() })
 h2 { font-size: 2rem; }
 .cian { color: #00c3e3; }
 .header-seccion { margin-bottom: 2rem; }
+.subtitulo { color: #a0a0b0; margin-top: 0.35rem; }
 
 .grid-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
+  align-items: start;
 }
 
 .panel {
@@ -267,8 +275,6 @@ input[type="text"]:focus, input[type="date"]:focus {
   border-color: #00c3e3;
 }
 
-.checkbox { flex-direction: row; align-items: center; }
-
 .btn-guardar {
   background-color: #00c3e3;
   color: #12121a;
@@ -289,33 +295,22 @@ input[type="text"]:focus, input[type="date"]:focus {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
 }
-.info-alumno { display: flex; flex-direction: column; gap: 0.2rem; }
+.info-alumno { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
 .nombre { font-weight: bold; color: white; }
-.tutor-info { font-size: 0.85rem; color: #00c3e3; } /* El tutor resalta un poco en cian */
-.fecha { font-size: 0.8rem; color: #a0a0b0; }
-.badge {
-  background-color: #8a2be2;
-  color: white;
-  font-size: 0.7rem;
-  padding: 0.3rem 0.6rem;
-  border-radius: 12px;
+.tutor-info { font-size: 0.85rem; color: #00c3e3; }
+
+.cargando {
+  color: #8a2be2;
+  font-style: italic;
+}
+.vacio {
+  color: #a0a0b0;
+  font-style: italic;
 }
 
-.select-oscuro {
-  background-color: #23233b;
-  border: 1px solid #33334d;
-  color: white;
-  padding: 0.8rem;
-  border-radius: 6px;
-  outline: none;
-  appearance: none; /* Quita la flechita fea por defecto en algunos navegadores */
-}
-.select-oscuro:focus {
-  border-color: #00c3e3;
-}
-
-/* Estilos del Buscador de Tutores */
+/* Buscador de Tutores */
 .buscador-personalizado {
   position: relative;
 }
@@ -328,9 +323,10 @@ input[type="text"]:focus, input[type="date"]:focus {
   border-radius: 6px;
   outline: none;
   width: 100%;
+  appearance: none;
 }
 .input-busqueda:focus {
-  border-color: #00c3e3; /* Resalte en cian */
+  border-color: #00c3e3;
 }
 
 .dropdown-lista {
@@ -338,7 +334,7 @@ input[type="text"]:focus, input[type="date"]:focus {
   top: 100%;
   left: 0;
   width: 100%;
-  background-color: #1a1a2e; /* Fondo oscuro marino */
+  background-color: #1a1a2e;
   border: 1px solid #33334d;
   border-radius: 6px;
   margin-top: 0.3rem;
@@ -358,7 +354,7 @@ input[type="text"]:focus, input[type="date"]:focus {
 }
 
 .dropdown-lista li:hover {
-  background-color: #8a2be2; /* Resalte en magenta al pasar el mouse */
+  background-color: #8a2be2;
 }
 
 .opcion-nula {
@@ -369,6 +365,7 @@ input[type="text"]:focus, input[type="date"]:focus {
 .sin-resultados {
   color: #ff4d4d !important;
   cursor: default;
+  font-style: italic;
 }
 .sin-resultados:hover {
   background-color: transparent !important;
@@ -385,7 +382,7 @@ input[type="text"]:focus, input[type="date"]:focus {
 .separador { border: none; border-top: 1px solid #33334d; margin: 1rem 0; }
 .subtitulo-form { color: #8a2be2; margin-bottom: 0.5rem; font-size: 0.95rem; }
 
-.header-lista { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+.header-lista { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem; }
 .tabs { display: flex; gap: 0.5rem; }
 .tabs button {
   background: transparent;
@@ -404,8 +401,7 @@ input[type="text"]:focus, input[type="date"]:focus {
 .badge-rojo { background-color: #ff4d4d; color: white; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 12px; }
 .tachado { text-decoration: line-through; opacity: 0.6; }
 
-/* Estilos para el botón de Baja/Reactivar */
-.acciones-alumno { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; }
+.acciones-alumno { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; flex-shrink: 0; }
 
 .btn-estado {
   border: none;
@@ -425,4 +421,9 @@ input[type="text"]:focus, input[type="date"]:focus {
 .btn-exito { background-color: transparent; border: 1px solid #2e8b57; color: #2e8b57; }
 .btn-exito:hover { background-color: #2e8b57; color: white; }
 
+@media (max-width: 900px) {
+  .grid-layout {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

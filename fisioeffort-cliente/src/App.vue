@@ -4,22 +4,21 @@ import { RouterView } from 'vue-router'
 
 <template>
   <div class="app-container">
-    <!-- Barra de Navegación Superior -->
     <header class="navbar">
-      <div class="logo">
-        <!-- Usamos los colores de tu marca -->
+      <div class="marca">
         <h1>Fisio<span class="cian">Effort</span> <span class="morado">Studio</span></h1>
+        <span class="admin-badge">Panel de administración</span>
       </div>
-      <nav>
+
+      <nav class="enlaces">
         <RouterLink to="/">Dashboard</RouterLink>
         <RouterLink to="/alumnos">Alumnos</RouterLink>
         <RouterLink to="/tutores">Tutores</RouterLink>
         <RouterLink to="/clases">Clases</RouterLink>
-        <span class="admin-badge">Panel de Administración</span>
+        <RouterLink to="/pagos">Pagos</RouterLink>
       </nav>
     </header>
 
-    <!-- Aquí se inyectarán las diferentes pantallas (Alumnos, Pagos, etc.) -->
     <main class="main-content">
       <RouterView />
     </main>
@@ -27,7 +26,7 @@ import { RouterView } from 'vue-router'
 </template>
 
 <style>
-/* Reseteo básico y Tema Oscuro Base */
+/* Reseteo básico y tema oscuro base */
 * {
   margin: 0;
   padding: 0;
@@ -36,8 +35,8 @@ import { RouterView } from 'vue-router'
 }
 
 body {
-  background-color: #12121a; /* Azul marino/Carbón muy oscuro para no cansar la vista */
-  color: #ffffff; /* Texto general en blanco puro */
+  background-color: #12121a;
+  color: #ffffff;
 }
 
 .app-container {
@@ -46,39 +45,87 @@ body {
   min-height: 100vh;
 }
 
-/* Estilos de la Barra de Navegación */
+/* --- Barra de navegación --- */
 .navbar {
-  background-color: #1a1a2e; /* Un tono ligeramente más claro para contraste */
+  background-color: #1a1a2e;
   padding: 1rem 2rem;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 3px solid #00c3e3; /* El acento Cian de tu logo */
+  gap: 1rem;
+  border-bottom: 3px solid #00c3e3;
 }
 
-.logo h1 {
-  font-size: 1.8rem;
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.marca h1 {
+  font-size: 1.5rem;
   font-weight: bold;
+  white-space: nowrap;
 }
 
-/* Colores de acento */
 .cian { color: #00c3e3; }
-.morado { color: #8a2be2; font-size: 1rem; font-weight: normal; }
+.morado { color: #8a2be2; }
 
 .admin-badge {
-  background-color: #33334d;
-  padding: 0.5rem 1rem;
+  background-color: #23233b;
+  padding: 0.35rem 0.9rem;
   border-radius: 20px;
-  font-size: 0.9rem;
-  color: #00c3e3;
+  font-size: 0.8rem;
+  color: #a0a0b0;
+  white-space: nowrap;
+}
+
+/* --- Links de navegación --- */
+.enlaces {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.enlaces a {
+  color: #a0a0b0;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.enlaces a:hover {
+  color: #ffffff;
+  background-color: #23233b;
+}
+
+.enlaces a.router-link-exact-active {
+  color: #12121a;
+  background-color: #00c3e3;
+  font-weight: 700;
 }
 
 .main-content {
   padding: 2rem;
+  flex: 1;
 }
 
-.enlaces { display: flex; gap: 1.5rem; align-items: center; }
-.enlaces a { color: #a0a0b0; text-decoration: none; font-weight: bold; }
-.enlaces a:hover { color: #00c3e3; }
-.enlaces a.router-link-active { color: #00c3e3; border-bottom: 2px solid #00c3e3; }
+@media (max-width: 720px) {
+  .navbar {
+    padding: 1rem;
+  }
+  .enlaces {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .main-content {
+    padding: 1rem;
+  }
+}
 </style>
