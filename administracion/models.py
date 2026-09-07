@@ -20,7 +20,7 @@ class Alumno(models.Model):
     tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE, related_name='alumnos')
     nombre_completo = models.CharField(max_length=200)
     fecha_nacimiento = models.DateField()
-    
+
     # Aquí está el candado que pidió tu hermana para el historial
     ha_tomado_clase_prueba = models.BooleanField(default=False)
     activo = models.BooleanField(default=True)
@@ -33,7 +33,7 @@ class Clase(models.Model):
     nombre = models.CharField(max_length=100) # Ej. Ballet, Judo, Entrenamiento Funcional
     profesor = models.CharField(max_length=100)
     capacidad_maxima = models.IntegerField(default=15)
-    
+
     def __str__(self):
         return f"{self.nombre} - {self.profesor}"
 
@@ -42,7 +42,14 @@ class Inscripcion(models.Model):
     alumno = models.ForeignKey(Alumno, on_delete=models.CASCADE, related_name='inscripciones')
     clase = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='inscripciones')
     fecha_inscripcion = models.DateField(auto_now_add=True)
-    
+
+    # Permite "retirar" a un alumno de una clase sin borrar la fila.
+    # Es importante que sea un borrado suave (no un DELETE real) porque
+    # Pago depende de Inscripcion con on_delete=CASCADE: borrar la
+    # inscripción borraría también el historial de pagos de ese alumno
+    # en esa clase.
+    activa = models.BooleanField(default=True)
+
     TIPO_INSCRIPCION = [
         ('PRUEBA', 'Clase de Prueba'),
         ('REGULAR', 'Mensualidad Regular'),

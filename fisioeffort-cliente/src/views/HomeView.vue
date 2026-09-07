@@ -1,5 +1,12 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+const irA = (ruta) => {
+  router.push(ruta)
+}
 
 const API_BASE = 'http://127.0.0.1:8000/api'
 
@@ -83,18 +90,24 @@ const totalRecaudado = computed(() =>
       </div>
     </section>
 
-    <!-- Detalle por área -->
+    <!-- Detalle por área: cada tarjeta completa navega a su sección -->
     <section class="tarjetas">
-      <div class="tarjeta tarjeta--cian">
+      <div
+        class="tarjeta tarjeta--cian interactiva"
+        role="button"
+        tabindex="0"
+        @click="irA('/alumnos')"
+        @keyup.enter="irA('/alumnos')"
+      >
         <div class="tarjeta-encabezado">
-          <h3>Alumnos</h3>
+          <h3>Alumnos <span class="flecha">➔</span></h3>
           <span class="contador">{{ totalAlumnos }}</span>
         </div>
 
         <p v-if="estado.alumnos.cargando" class="cargando">Conectando con la base de datos...</p>
         <p v-else-if="estado.alumnos.error" class="error">No se pudo cargar la información de alumnos.</p>
         <p v-else-if="alumnos.length === 0" class="vacio">Aún no hay alumnos registrados.</p>
-        <ul v-else class="lista">
+        <ul v-else class="lista" @click.stop>
           <li v-for="alumno in alumnos" :key="alumno.id">
             <span class="acento acento--cian">#{{ alumno.id }}</span>
             <div class="lista-item-cuerpo">
@@ -102,7 +115,7 @@ const totalRecaudado = computed(() =>
               <span class="lista-item-detalle">
                 {{ alumno.nombre_tutor || 'Sin tutor asignado' }}
                 <template v-if="alumno.clases_inscritas?.length">
-                  · {{ alumno.clases_inscritas.join(', ') }}
+                  · {{ alumno.clases_inscritas.map((c) => c.clase_nombre).join(', ') }}
                 </template>
               </span>
             </div>
@@ -116,16 +129,22 @@ const totalRecaudado = computed(() =>
         </ul>
       </div>
 
-      <div class="tarjeta tarjeta--morado">
+      <div
+        class="tarjeta tarjeta--morado interactiva"
+        role="button"
+        tabindex="0"
+        @click="irA('/tutores')"
+        @keyup.enter="irA('/tutores')"
+      >
         <div class="tarjeta-encabezado">
-          <h3>Tutores</h3>
+          <h3>Tutores <span class="flecha">➔</span></h3>
           <span class="contador">{{ totalTutores }}</span>
         </div>
 
         <p v-if="estado.tutores.cargando" class="cargando">Conectando con la base de datos...</p>
         <p v-else-if="estado.tutores.error" class="error">No se pudo cargar la información de tutores.</p>
         <p v-else-if="tutores.length === 0" class="vacio">Aún no hay tutores registrados.</p>
-        <ul v-else class="lista">
+        <ul v-else class="lista" @click.stop>
           <li v-for="tutor in tutores" :key="tutor.id">
             <span class="acento acento--morado">#{{ tutor.id }}</span>
             <div class="lista-item-cuerpo">
@@ -138,16 +157,22 @@ const totalRecaudado = computed(() =>
         </ul>
       </div>
 
-      <div class="tarjeta tarjeta--cian">
+      <div
+        class="tarjeta tarjeta--cian interactiva"
+        role="button"
+        tabindex="0"
+        @click="irA('/clases')"
+        @keyup.enter="irA('/clases')"
+      >
         <div class="tarjeta-encabezado">
-          <h3>Clases</h3>
+          <h3>Clases <span class="flecha">➔</span></h3>
           <span class="contador">{{ totalClases }}</span>
         </div>
 
         <p v-if="estado.clases.cargando" class="cargando">Conectando con la base de datos...</p>
         <p v-else-if="estado.clases.error" class="error">No se pudo cargar la información de clases.</p>
         <p v-else-if="clases.length === 0" class="vacio">Aún no hay clases registradas.</p>
-        <ul v-else class="lista">
+        <ul v-else class="lista" @click.stop>
           <li v-for="clase in clases" :key="clase.id">
             <div class="lista-item-cuerpo">
               <span class="acento acento--cian">{{ clase.nombre }}</span>
@@ -165,16 +190,22 @@ const totalRecaudado = computed(() =>
         </ul>
       </div>
 
-      <div class="tarjeta tarjeta--morado">
+      <div
+        class="tarjeta tarjeta--morado interactiva"
+        role="button"
+        tabindex="0"
+        @click="irA('/pagos')"
+        @keyup.enter="irA('/pagos')"
+      >
         <div class="tarjeta-encabezado">
-          <h3>Pagos</h3>
+          <h3>Pagos <span class="flecha">➔</span></h3>
           <span class="contador">{{ formatoMoneda.format(totalRecaudado) }}</span>
         </div>
 
         <p v-if="estado.pagos.cargando" class="cargando">Conectando con la base de datos...</p>
         <p v-else-if="estado.pagos.error" class="error">No se pudo cargar la información de pagos.</p>
         <p v-else-if="pagos.length === 0" class="vacio">Aún no hay pagos registrados.</p>
-        <ul v-else class="lista">
+        <ul v-else class="lista" @click.stop>
           <li v-for="pago in pagos" :key="pago.id">
             <div class="lista-item-cuerpo">
               <span>{{ pago.alumno_nombre }}</span>
@@ -256,6 +287,22 @@ const totalRecaudado = computed(() =>
 .tarjeta--cian { border-left-color: #00c3e3; }
 .tarjeta--morado { border-left-color: #8a2be2; }
 
+/* Tarjetas clicables: toda la tarjeta navega, no solo el título */
+.tarjeta.interactiva {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-left-color 0.15s ease;
+}
+.tarjeta.interactiva:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+.tarjeta.interactiva:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+.tarjeta--cian.interactiva:hover { border-left-color: #5fe3fa; }
+.tarjeta--morado.interactiva:hover { border-left-color: #a86bf0; }
+
 .tarjeta-encabezado {
   display: flex;
   align-items: baseline;
@@ -266,6 +313,20 @@ const totalRecaudado = computed(() =>
 .tarjeta-encabezado h3 {
   color: #ffffff;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.flecha {
+  color: inherit;
+  opacity: 0.6;
+  font-size: 0.9em;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.tarjeta.interactiva:hover .flecha {
+  opacity: 1;
+  transform: translateX(3px);
 }
 
 .contador {
@@ -279,6 +340,7 @@ const totalRecaudado = computed(() =>
   margin: 0;
   max-height: 240px;
   overflow-y: auto;
+  cursor: default;
 }
 
 .lista li {

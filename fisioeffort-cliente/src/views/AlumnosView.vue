@@ -16,11 +16,16 @@ const nuevoAlumno = ref({
 const busquedaTutor = ref('')
 const mostrarDropdown = ref(false)
 
-// Objeto para la inscripción automática
+// Objeto para la inscripción automática (al crear al alumno)
 const nuevaInscripcion = ref({
   clase: '',
   tipo: 'REGULAR' // Puede ser REGULAR o PRUEBA
 })
+
+// --- Gestión de clase para un alumno YA EXISTENTE ---
+const alumnoEditandoClase = ref(null) // id del alumno cuyo mini-formulario está abierto
+const formClaseRapida = ref({ clase: '', tipo: 'REGULAR' })
+const enviandoInscripcionRapida = ref(false)
 
 // --- COMPUTED PARA FILTROS ---
 const tutoresFiltrados = computed(() => {
@@ -30,6 +35,12 @@ const tutoresFiltrados = computed(() => {
 
 const alumnosActivos = computed(() => alumnos.value.filter(a => a.activo === true))
 const alumnosInactivos = computed(() => alumnos.value.filter(a => a.activo === false))
+
+// Clases en las que el alumno TODAVÍA no está inscrito (para no ofrecer duplicados)
+function clasesDisponiblesPara(alumno) {
+  const idsActuales = alumno.clases_inscritas.map((c) => c.clase_id)
+  return clases.value.filter((c) => !idsActuales.includes(c.id))
+}
 
 // --- FUNCIONES DE CARGA ---
 const cargarDatos = async () => {
@@ -124,6 +135,80 @@ const cambiarEstadoAlumno = async (alumno) => {
   }
 }
 
+// --- GESTIÓN DE CLASE PARA UN ALUMNO EXISTENTE ---
+function abrirFormClase(alumno) {
+  alumnoEditandoClase.value = alumno.id
+  formClaseRapida.value = { clase: '', tipo: 'REGULAR' }
+}
+
+function cerrarFormClase() {
+  alumnoEditandoClase.value = null
+}
+
+// Extrae mensajes de error legibles de la respuesta de DRF,
+// ej. {"clase": ["Esta clase ya ha alcanzado su capacidad máxima..."]}
+function extraerMensajeError(datosError) {
+  if (!datosError || typeof datosError !== 'object') {
+    return 'No se pudo completar la inscripción.'
+  }
+  const mensajes = Object.values(datosError).flat()
+  return mensajes.length > 0 ? mensajes.join(' ') : 'No se pudo completar la inscripción.'
+}
+
+const inscribirEnClase = async (alumno) => {
+  if (!formClaseRapida.value.clase) {
+    alert('Selecciona una clase.')
+    return
+  }
+
+  enviandoInscripcionRapida.value = true
+  try {
+    const respuesta = await fetch('http://127.0.0.1:8000/api/inscripciones/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        alumno: alumno.id,
+        clase: formClaseRapida.value.clase,
+        tipo: formClaseRapida.value.tipo
+      })
+    })
+
+    const datos = await respuesta.json()
+
+    if (respuesta.ok) {
+      cerrarFormClase()
+      cargarDatos()
+    } else {
+      alert(extraerMensajeError(datos))
+    }
+  } catch (error) {
+    console.error('Error al inscribir en clase:', error)
+    alert('Error de red al inscribir al alumno.')
+  } finally {
+    enviandoInscripcionRapida.value = false
+  }
+}
+
+const quitarDeClase = async (inscripcionId, alumnoNombre, claseNombre) => {
+  if (!confirm(`¿Quitar a ${alumnoNombre} de ${claseNombre}?`)) return
+
+  try {
+    const respuesta = await fetch(`http://127.0.0.1:8000/api/inscripciones/${inscripcionId}/`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activa: false })
+    })
+
+    if (respuesta.ok) {
+      cargarDatos()
+    } else {
+      alert('No se pudo quitar al alumno de la clase.')
+    }
+  } catch (error) {
+    console.error('Error al quitar de clase:', error)
+  }
+}
+
 onMounted(() => { cargarDatos() })
 </script>
 
@@ -214,9 +299,46 @@ onMounted(() => { cargarDatos() })
 
               <div class="badges-clases">
                 <span v-if="alumno.clases_inscritas.length === 0" class="badge-gris">Sin clase asignada</span>
-                <span v-for="(clase, index) in alumno.clases_inscritas" :key="index" class="badge-clase">
-                  {{ clase }}
+                <span v-for="c in alumno.clases_inscritas" :key="c.inscripcion_id" class="badge-clase">
+                  {{ c.clase_nombre }}
+                  <button
+                    v-if="alumno.activo"
+                    class="quitar-clase"
+                    title="Quitar de esta clase"
+                    @click="quitarDeClase(c.inscripcion_id, alumno.nombre_completo, c.clase_nombre)"
+                  >×</button>
                 </span>
+                <button
+                  v-if="alumno.activo && alumnoEditandoClase !== alumno.id"
+                  class="badge-agregar"
+                  @click="abrirFormClase(alumno)"
+                >
+                  + Agregar clase
+                </button>
+              </div>
+
+              <!-- Mini-formulario para inscribir a un alumno existente en otra clase -->
+              <div v-if="alumnoEditandoClase === alumno.id" class="form-clase-rapida">
+                <select v-model="formClaseRapida.clase">
+                  <option value="">-- Selecciona una clase --</option>
+                  <option v-for="c in clasesDisponiblesPara(alumno)" :key="c.id" :value="c.id">
+                    {{ c.nombre }} ({{ c.lugares_disponibles }} lugares)
+                  </option>
+                </select>
+                <select v-model="formClaseRapida.tipo">
+                  <option value="REGULAR">Regular</option>
+                  <option value="PRUEBA">Prueba</option>
+                </select>
+                <div class="botones-form-rapida">
+                  <button
+                    class="btn-mini btn-mini--ok"
+                    :disabled="enviandoInscripcionRapida"
+                    @click="inscribirEnClase(alumno)"
+                  >
+                    {{ enviandoInscripcionRapida ? 'Inscribiendo...' : 'Inscribir' }}
+                  </button>
+                  <button class="btn-mini btn-mini--cancelar" @click="cerrarFormClase">Cancelar</button>
+                </div>
               </div>
             </div>
             <div class="acciones-alumno">
@@ -294,10 +416,10 @@ input[type="text"]:focus, input[type="date"]:focus {
   border-radius: 6px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
 }
-.info-alumno { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.info-alumno { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; flex: 1; }
 .nombre { font-weight: bold; color: white; }
 .tutor-info { font-size: 0.85rem; color: #00c3e3; }
 
@@ -323,7 +445,6 @@ input[type="text"]:focus, input[type="date"]:focus {
   border-radius: 6px;
   outline: none;
   width: 100%;
-  appearance: none;
 }
 .input-busqueda:focus {
   border-color: #00c3e3;
@@ -395,11 +516,80 @@ input[type="text"]:focus, input[type="date"]:focus {
 }
 .tabs button.activo { background-color: #00c3e3; color: #12121a; border-color: #00c3e3; font-weight: bold; }
 
-.badges-clases { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
-.badge-clase { background-color: #2e8b57; color: white; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 12px; }
+.badges-clases { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; align-items: center; }
+.badge-clase {
+  background-color: #2e8b57;
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.4rem 0.3rem 0.6rem;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
 .badge-gris { background-color: #33334d; color: #a0a0b0; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 12px; }
 .badge-rojo { background-color: #ff4d4d; color: white; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 12px; }
 .tachado { text-decoration: line-through; opacity: 0.6; }
+
+.quitar-clase {
+  background: transparent;
+  border: none;
+  color: #f0fff5;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 0.1rem;
+  opacity: 0.8;
+}
+.quitar-clase:hover { opacity: 1; }
+
+.badge-agregar {
+  background-color: transparent;
+  border: 1px dashed #33334d;
+  color: #a0a0b0;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.badge-agregar:hover { border-color: #00c3e3; color: #00c3e3; }
+
+.form-clase-rapida {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  padding: 0.75rem;
+  background-color: #1a1a2e;
+  border-radius: 8px;
+  align-items: center;
+}
+.form-clase-rapida select {
+  background-color: #23233b;
+  border: 1px solid #33334d;
+  color: white;
+  padding: 0.5rem;
+  border-radius: 6px;
+  outline: none;
+}
+.form-clase-rapida select:focus { border-color: #00c3e3; }
+
+.botones-form-rapida { display: flex; gap: 0.5rem; }
+.btn-mini {
+  border: none;
+  padding: 0.5rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.btn-mini:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-mini--ok { background-color: #00c3e3; color: #12121a; }
+.btn-mini--ok:hover { opacity: 0.8; }
+.btn-mini--cancelar { background-color: transparent; border: 1px solid #33334d; color: #a0a0b0; }
+.btn-mini--cancelar:hover { color: white; border-color: #a0a0b0; }
 
 .acciones-alumno { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; flex-shrink: 0; }
 
