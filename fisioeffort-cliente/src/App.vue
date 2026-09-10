@@ -1,10 +1,27 @@
 <script setup>
-import { RouterView } from 'vue-router'
+import { RouterView, useRouter } from 'vue-router'
+import { supabase} from './supabase'
+ 
+const router = useRouter()
+
+const cerrarSesion = async () => {
+  // 1. Le decimos a Supabase que destruya la sesión actual
+  const { error } = await supabase.auth.signOut()
+  
+  if (error) {
+    console.error('Error al cerrar sesión:', error)
+    return
+  }
+  
+  // 2. Lo mandamos de regreso a la pantalla de login y el cadenero hará su trabajo
+  router.push('/login')
+}
+
 </script>
 
 <template>
   <div class="app-container">
-    <header class="navbar">
+    <header class="navbar" c-if="route.name!== 'login'">
       <div class="marca">
         <h1>Fisio<span class="cian">Effort</span> <span class="morado">Studio</span></h1>
         <span class="admin-badge">Panel de administración</span>
@@ -16,6 +33,9 @@ import { RouterView } from 'vue-router'
         <RouterLink to="/tutores">Tutores</RouterLink>
         <RouterLink to="/clases">Clases</RouterLink>
         <RouterLink to="/pagos">Pagos</RouterLink>
+        <button @click="cerrarSesion" class="btn-logout">
+          Cerrar Sesión
+        </button>
       </nav>
     </header>
 
@@ -128,4 +148,22 @@ body {
     padding: 1rem;
   }
 }
+
+.btn-logout {
+  background-color: transparent;
+  color: #00c3e3;
+  border: 1px solid #00c3e3;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  margin-left: auto; /* Ayuda a empujarlo a la derecha si usas flexbox */
+}
+
+.btn-logout:hover {
+  background-color: #00c3e3;
+  color: #1a1a2e;
+}
+
 </style>
