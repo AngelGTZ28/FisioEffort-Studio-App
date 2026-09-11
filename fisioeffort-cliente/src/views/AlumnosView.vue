@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { apiFetch } from '../api'
 
 const alumnos = ref([])
 const tutores = ref([])
@@ -46,9 +47,9 @@ function clasesDisponiblesPara(alumno) {
 const cargarDatos = async () => {
   try {
     const [resAlumnos, resTutores, resClases] = await Promise.all([
-      fetch('http://127.0.0.1:8000/api/alumnos/'),
-      fetch('http://127.0.0.1:8000/api/tutores/'),
-      fetch('http://127.0.0.1:8000/api/clases/') // <-- Cargamos las clases
+      apiFetch('/alumnos/'),
+      apiFetch('/tutores/'),
+      apiFetch('/clases/')
     ])
     alumnos.value = await resAlumnos.json()
     tutores.value = await resTutores.json()
@@ -77,9 +78,8 @@ const guardarAlumno = async () => {
     if (payloadAlumno.tutor === '') payloadAlumno.tutor = null
 
     // 1. Creamos al Alumno
-    const resAlumno = await fetch('http://127.0.0.1:8000/api/alumnos/', {
+    const resAlumno = await apiFetch('/alumnos/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payloadAlumno)
     })
 
@@ -88,9 +88,8 @@ const guardarAlumno = async () => {
 
       // 2. Si eligió una clase, creamos la Inscripción inmediatamente
       if (nuevaInscripcion.value.clase !== '') {
-        await fetch('http://127.0.0.1:8000/api/inscripciones/', {
+        await apiFetch('/inscripciones/', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             alumno: alumnoCreado.id,
             clase: nuevaInscripcion.value.clase,
@@ -117,11 +116,8 @@ const cambiarEstadoAlumno = async (alumno) => {
   if (!confirm(`¿Estás seguro de que deseas ${accion} a ${alumno.nombre_completo}?`)) return
 
   try {
-    const respuesta = await fetch(`http://127.0.0.1:8000/api/alumnos/${alumno.id}/`, {
+    const respuesta = await apiFetch(`/alumnos/${alumno.id}/`, {
       method: 'PATCH', // Usamos PATCH porque solo actualizaremos un campo, no todo el registro
-      headers: {
-        'Content-Type': 'application/json'
-      },
       body: JSON.stringify({ activo: !alumno.activo }) // Invertimos su estado actual
     })
 
@@ -163,9 +159,8 @@ const inscribirEnClase = async (alumno) => {
 
   enviandoInscripcionRapida.value = true
   try {
-    const respuesta = await fetch('http://127.0.0.1:8000/api/inscripciones/', {
+    const respuesta = await apiFetch('/inscripciones/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         alumno: alumno.id,
         clase: formClaseRapida.value.clase,
@@ -193,9 +188,8 @@ const quitarDeClase = async (inscripcionId, alumnoNombre, claseNombre) => {
   if (!confirm(`¿Quitar a ${alumnoNombre} de ${claseNombre}?`)) return
 
   try {
-    const respuesta = await fetch(`http://127.0.0.1:8000/api/inscripciones/${inscripcionId}/`, {
+    const respuesta = await apiFetch(`/inscripciones/${inscripcionId}/`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ activa: false })
     })
 

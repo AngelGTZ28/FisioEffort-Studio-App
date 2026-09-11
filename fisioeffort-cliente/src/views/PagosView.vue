@@ -1,8 +1,9 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import { apiFetch } from '../api'
 
 const pagos = ref([])
-const inscripciones = ref([])
+const alumnos = ref([])
 const cargando = ref(true)
 
 const nuevoPago = ref({
@@ -12,6 +13,23 @@ const nuevoPago = ref({
   metodo_pago: 'EFECTIVO'
 })
 
+// --- Buscador de alumno (mismo patrón que en Clases/Alumnos) ---
+const busquedaAlumno = ref('')
+const alumnoSeleccionado = ref(null)
+const mostrarDropdownAlumno = ref(false)
+
+const alumnosFiltrados = computed(() => {
+  const activos = alumnos.value.filter((a) => a.activo)
+  if (!busquedaAlumno.value) return activos
+  return activos.filter((a) =>
+    a.nombre_completo.toLowerCase().includes(busquedaAlumno.value.toLowerCase())
+  )
+})
+
+// Clases activas del alumno seleccionado (ya vienen con inscripcion_id
+// gracias a AlumnoSerializer.get_clases_inscritas)
+const clasesDelAlumno = computed(() => alumnoSeleccionado.value?.clases_inscritas || [])
+
 const formatoMoneda = new Intl.NumberFormat('es-MX', {
   style: 'currency',
   currency: 'MXN',
@@ -20,7 +38,7 @@ const formatoMoneda = new Intl.NumberFormat('es-MX', {
 // Cargar el historial de pagos
 const cargarPagos = async () => {
   try {
-    const respuesta = await fetch('http://127.0.0.1:8000/api/pagos/')
+    const respuesta = await apiFetch('/pagos/')
     pagos.value = await respuesta.json()
     cargando.value = false
   } catch (error) {
@@ -28,31 +46,44 @@ const cargarPagos = async () => {
   }
 }
 
-// Cargar las inscripciones para el select del formulario
-const cargarInscripciones = async () => {
+// Cargar alumnos para el buscador del formulario
+const cargarAlumnos = async () => {
   try {
-    const respuesta = await fetch('http://127.0.0.1:8000/api/inscripciones/')
-    if (respuesta.ok) {
-      inscripciones.value = await respuesta.json()
-    }
+    const respuesta = await apiFetch('/alumnos/')
+    alumnos.value = await respuesta.json()
   } catch (error) {
-    console.error('Error al cargar inscripciones:', error)
+    console.error('Error al cargar alumnos:', error)
   }
+}
+
+const seleccionarAlumno = (alumno) => {
+  alumnoSeleccionado.value = alumno
+  busquedaAlumno.value = alumno.nombre_completo
+  mostrarDropdownAlumno.value = false
+
+  // Si solo tiene una clase activa, la seleccionamos de una vez.
+  // Si tiene varias, dejamos el select vacío para que elija cuál cobrar.
+  const clases = alumno.clases_inscritas || []
+  nuevoPago.value.inscripcion = clases.length === 1 ? clases[0].inscripcion_id : ''
+}
+
+const limpiarSeleccionAlumno = () => {
+  alumnoSeleccionado.value = null
+  busquedaAlumno.value = ''
+  nuevoPago.value.inscripcion = ''
 }
 
 const registrarPago = async () => {
   try {
-    const respuesta = await fetch('http://127.0.0.1:8000/api/pagos/', {
+    const respuesta = await apiFetch('/pagos/', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
       body: JSON.stringify(nuevoPago.value)
     })
 
     if (respuesta.ok) {
       // Limpiamos el formulario y recargamos la lista
       nuevoPago.value = { inscripcion: '', monto: '', mes_cubierto: '', metodo_pago: 'EFECTIVO' }
+      limpiarSeleccionAlumno()
       cargarPagos()
       alert('¡Pago registrado con éxito!')
     }
@@ -63,7 +94,7 @@ const registrarPago = async () => {
 
 onMounted(() => {
   cargarPagos()
-  cargarInscripciones()
+  cargarAlumnos()
 })
 </script>
 
@@ -80,15 +111,51 @@ onMounted(() => {
         <h3>Registrar Nuevo Pago</h3>
         <form @submit.prevent="registrarPago" class="formulario">
 
-          <div class="input-group">
-            <label>Alumno y Clase (Inscripción)</label>
-            <select v-model="nuevoPago.inscripcion" required>
-              <option value="" disabled>Selecciona una inscripción...</option>
-              <!-- Iteramos sobre las inscripciones activas -->
-              <option v-for="insc in inscripciones" :key="insc.id" :value="insc.id">
-                Inscripción #{{ insc.id }}
-              </option>
-            </select>
+          <div class="input-group buscador-personalizado">
+            <label>Alumno</label>
+            <input
+              type="text"
+              v-model="busquedaAlumno"
+              @focus="mostrarDropdownAlumno = true"
+              class="input-busqueda"
+              placeholder="Buscar alumno por nombre..."
+              autocomplete="off"
+              required
+            >
+            <ul v-if="mostrarDropdownAlumno" class="dropdown-lista">
+              <li v-if="alumnosFiltrados.length === 0" class="sin-resultados">
+                No se encontraron alumnos activos
+              </li>
+              <li v-for="alumno in alumnosFiltrados" :key="alumno.id" @click="seleccionarAlumno(alumno)">
+                {{ alumno.nombre_completo }}
+              </li>
+            </ul>
+            <span v-if="mostrarDropdownAlumno" class="btn-cerrar" @click="mostrarDropdownAlumno = false">
+              Cerrar
+            </span>
+          </div>
+
+          <!-- Solo aparece una vez que hay un alumno elegido -->
+          <div v-if="alumnoSeleccionado" class="input-group">
+            <template v-if="clasesDelAlumno.length === 0">
+              <p class="aviso-sin-clase">
+                {{ alumnoSeleccionado.nombre_completo }} no tiene ninguna clase activa.
+                Inscríbelo en una clase antes de registrarle un pago.
+              </p>
+            </template>
+            <template v-else-if="clasesDelAlumno.length === 1">
+              <label>Clase</label>
+              <p class="clase-unica">{{ clasesDelAlumno[0].clase_nombre }}</p>
+            </template>
+            <template v-else>
+              <label>¿Qué clase está pagando?</label>
+              <select v-model="nuevoPago.inscripcion" required>
+                <option value="" disabled>-- Selecciona una clase --</option>
+                <option v-for="c in clasesDelAlumno" :key="c.inscripcion_id" :value="c.inscripcion_id">
+                  {{ c.clase_nombre }}{{ c.tipo === 'PRUEBA' ? ' (Prueba)' : '' }}
+                </option>
+              </select>
+            </template>
           </div>
 
           <div class="input-group">
@@ -110,7 +177,9 @@ onMounted(() => {
             </select>
           </div>
 
-          <button type="submit" class="btn-guardar">Registrar Ingreso</button>
+          <button type="submit" class="btn-guardar" :disabled="!nuevoPago.inscripcion">
+            Registrar Ingreso
+          </button>
         </form>
       </div>
 
@@ -165,7 +234,7 @@ h2 { font-size: 2rem; }
 
 /* Formulario */
 .formulario { display: flex; flex-direction: column; gap: 1.5rem; }
-.input-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.input-group { display: flex; flex-direction: column; gap: 0.5rem; position: relative; }
 label { color: #a0a0b0; font-size: 0.9rem; }
 input, select {
   background-color: #23233b;
@@ -178,6 +247,26 @@ input, select {
 }
 input:focus, select:focus { border-color: #8a2be2; }
 
+.clase-unica {
+  background-color: #23233b;
+  border: 1px solid #33334d;
+  color: #00c3e3;
+  padding: 0.8rem;
+  border-radius: 6px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.aviso-sin-clase {
+  color: #ff6b6b;
+  font-size: 0.85rem;
+  background-color: #2a1a1f;
+  border: 1px solid #ff4d4d;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin: 0;
+}
+
 .btn-guardar {
   background-color: #2e8b57; /* Verde para que parezca dinero/éxito */
   color: white;
@@ -189,10 +278,62 @@ input:focus, select:focus { border-color: #8a2be2; }
   transition: opacity 0.2s;
 }
 .btn-guardar:hover { opacity: 0.8; }
+.btn-guardar:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .cargando {
   color: #8a2be2;
   font-style: italic;
+}
+
+/* Buscador de alumno (mismo patrón que Clases/Alumnos) */
+.buscador-personalizado { position: relative; }
+.input-busqueda {
+  background-color: #23233b;
+  border: 1px solid #33334d;
+  color: white;
+  padding: 0.8rem;
+  border-radius: 6px;
+  outline: none;
+  width: 100%;
+}
+.input-busqueda:focus { border-color: #00c3e3; }
+
+.dropdown-lista {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  background-color: #1a1a2e;
+  border: 1px solid #33334d;
+  border-radius: 6px;
+  margin-top: 0.3rem;
+  padding: 0;
+  list-style: none;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+.dropdown-lista li {
+  padding: 0.8rem;
+  cursor: pointer;
+  border-bottom: 1px solid #23233b;
+  color: white;
+}
+.dropdown-lista li:hover { background-color: #8a2be2; }
+.sin-resultados {
+  color: #ff4d4d !important;
+  cursor: default;
+  font-style: italic;
+}
+.sin-resultados:hover { background-color: transparent !important; }
+
+.btn-cerrar {
+  font-size: 0.8rem;
+  color: #ff4d4d;
+  cursor: pointer;
+  text-align: right;
+  margin-top: 0.3rem;
 }
 
 /* Tarjetas de Pagos */

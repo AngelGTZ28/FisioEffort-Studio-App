@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { apiFetch } from '../api'
 
 const tutores = ref([])
 const cargando = ref(true)
@@ -12,7 +13,7 @@ const nuevoTutor = ref({
 
 const cargarTutores = async () => {
   try {
-    const respuesta = await fetch('http://127.0.0.1:8000/api/tutores/')
+    const respuesta = await apiFetch('/tutores/')
     tutores.value = await respuesta.json()
     cargando.value = false
   } catch (error) {
@@ -23,11 +24,8 @@ const cargarTutores = async () => {
 
 const guardarTutor = async () => {
   try {
-    const respuesta = await fetch('http://127.0.0.1:8000/api/tutores/', {
+    const respuesta = await apiFetch('/tutores/', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
       body: JSON.stringify(nuevoTutor.value)
     })
 

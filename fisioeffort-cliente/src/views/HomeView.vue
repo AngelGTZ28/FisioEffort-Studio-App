@@ -1,14 +1,13 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { apiFetch } from '../api'
 
 const router = useRouter()
 
 const irA = (ruta) => {
   router.push(ruta)
 }
-
-const API_BASE = 'http://127.0.0.1:8000/api'
 
 // Estado por sección: datos, carga y error, todo por separado
 // para que una sección lenta o caída no bloquee a las demás.
@@ -26,7 +25,7 @@ const estado = ref({
 
 async function cargarSeccion(nombre, url, destino) {
   try {
-    const respuesta = await fetch(url)
+    const respuesta = await apiFetch(url)
     if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`)
     const datos = await respuesta.json()
     destino.value = datos
@@ -39,10 +38,10 @@ async function cargarSeccion(nombre, url, destino) {
 }
 
 onMounted(() => {
-  cargarSeccion('alumnos', `${API_BASE}/alumnos/`, alumnos)
-  cargarSeccion('tutores', `${API_BASE}/tutores/`, tutores)
-  cargarSeccion('clases', `${API_BASE}/clases/`, clases)
-  cargarSeccion('pagos', `${API_BASE}/pagos/`, pagos)
+  cargarSeccion('alumnos', '/alumnos/', alumnos)
+  cargarSeccion('tutores', '/tutores/', tutores)
+  cargarSeccion('clases', '/clases/', clases)
+  cargarSeccion('pagos', '/pagos/', pagos)
 })
 
 const formatoMoneda = new Intl.NumberFormat('es-MX', {

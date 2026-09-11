@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { apiFetch } from '../api'
 
 const clases = ref([])
 const alumnos = ref([])
@@ -28,7 +29,7 @@ const alumnosFiltrados = computed(() => {
 
 const cargarClases = async () => {
   try {
-    const respuesta = await fetch('http://127.0.0.1:8000/api/clases/')
+    const respuesta = await apiFetch('/clases/')
     clases.value = await respuesta.json()
     cargando.value = false
   } catch (error) {
@@ -38,7 +39,7 @@ const cargarClases = async () => {
 
 const cargarAlumnos = async () => {
   try {
-    const respuesta = await fetch('http://127.0.0.1:8000/api/alumnos/')
+    const respuesta = await apiFetch('/alumnos/')
     alumnos.value = await respuesta.json()
   } catch (error) {
     console.error('Error al cargar alumnos:', error)
@@ -47,11 +48,8 @@ const cargarAlumnos = async () => {
 
 const guardarClase = async () => {
   try {
-    const respuesta = await fetch('http://127.0.0.1:8000/api/clases/', {
+    const respuesta = await apiFetch('/clases/', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
       body: JSON.stringify(nuevaClase.value)
     })
 
@@ -88,9 +86,8 @@ const inscribirAlumno = async () => {
 
   enviandoInscripcion.value = true
   try {
-    const respuesta = await fetch('http://127.0.0.1:8000/api/inscripciones/', {
+    const respuesta = await apiFetch('/inscripciones/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         alumno: alumnoSeleccionado.value.id,
         clase: claseSeleccionada.value,
@@ -124,9 +121,8 @@ const quitarDeClase = async (inscripcionId, alumnoNombre, claseNombre) => {
   if (!confirm(`¿Quitar a ${alumnoNombre} de ${claseNombre}?`)) return
 
   try {
-    const respuesta = await fetch(`http://127.0.0.1:8000/api/inscripciones/${inscripcionId}/`, {
+    const respuesta = await apiFetch(`/inscripciones/${inscripcionId}/`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ activa: false })
     })
 
