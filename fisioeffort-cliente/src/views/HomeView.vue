@@ -2,6 +2,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiFetch } from '../api'
+import SkeletonKPIs from '../components/SkeletonKPIs.vue'
+import SkeletonLista from '../components/SkeletonLista.vue'
 
 const router = useRouter()
 
@@ -22,6 +24,10 @@ const estado = ref({
   clases: { cargando: true, error: false },
   pagos: { cargando: true, error: false },
 })
+
+// Mientras alguna sección siga cargando, los KPIs muestran un skeleton
+// en lugar de números parciales.
+const kpisCargando = computed(() => Object.values(estado.value).some((s) => s.cargando))
 
 async function cargarSeccion(nombre, url, destino) {
   try {
@@ -49,16 +55,31 @@ const formatoMoneda = new Intl.NumberFormat('es-MX', {
   currency: 'MXN',
 })
 
+// --- Total recaudado del mes en curso ---
+const obtenerMesActual = () => {
+  const ahora = new Date()
+  return `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}` // YYYY-MM
+}
+
+const formatoMes = new Intl.DateTimeFormat('es-MX', { year: 'numeric', month: 'long' })
+
+// Se construye en hora local para evitar que '2026-09-01' se interprete como
+// medianoche UTC y en zonas con offset negativo caiga en el mes anterior.
+const [anioMes, mesNumero] = obtenerMesActual().split('-')
+const etiquetaMesActual = formatoMes.format(new Date(Number(anioMes), Number(mesNumero) - 1, 1))
+
+const totalRecaudado = computed(() =>
+  pagos.value
+    .filter((p) => String(p.fecha_registro).slice(0, 7) === obtenerMesActual())
+    .reduce((suma, p) => suma + Number(p.monto || 0), 0)
+)
+
 // KPIs derivados de los campos reales de tus serializers.
-const totalAlumnos = computed(() => alumnos.value.length)
 const alumnosActivos = computed(() => alumnos.value.filter((a) => a.activo).length)
 const totalTutores = computed(() => tutores.value.length)
 const totalClases = computed(() => clases.value.length)
 const cuposDisponibles = computed(() =>
   clases.value.reduce((suma, c) => suma + (c.lugares_disponibles ?? 0), 0)
-)
-const totalRecaudado = computed(() =>
-  pagos.value.reduce((suma, p) => suma + Number(p.monto || 0), 0)
 )
 </script>
 
@@ -70,7 +91,10 @@ const totalRecaudado = computed(() =>
     </header>
 
     <!-- Fila de KPIs: el vistazo rápido antes de entrar al detalle -->
-    <section class="kpis">
+    <template v-if="kpisCargando">
+      <SkeletonKPIs />
+    </template>
+    <section v-else class="kpis">
       <div class="kpi kpi--cian">
         <span class="kpi-numero">{{ alumnosActivos }}</span>
         <span class="kpi-etiqueta">Alumnos activos</span>
@@ -85,7 +109,7 @@ const totalRecaudado = computed(() =>
       </div>
       <div class="kpi kpi--morado">
         <span class="kpi-numero">{{ formatoMoneda.format(totalRecaudado) }}</span>
-        <span class="kpi-etiqueta">Total recaudado</span>
+        <span class="kpi-etiqueta">Recaudado en {{ etiquetaMesActual }}</span>
       </div>
     </section>
 
@@ -100,10 +124,9 @@ const totalRecaudado = computed(() =>
       >
         <div class="tarjeta-encabezado">
           <h3>Alumnos <span class="flecha">➔</span></h3>
-          <span class="contador">{{ totalAlumnos }}</span>
         </div>
 
-        <p v-if="estado.alumnos.cargando" class="cargando">Conectando con la base de datos...</p>
+        <SkeletonLista v-if="estado.alumnos.cargando" :filas="3" />
         <p v-else-if="estado.alumnos.error" class="error">No se pudo cargar la información de alumnos.</p>
         <p v-else-if="alumnos.length === 0" class="vacio">Aún no hay alumnos registrados.</p>
         <ul v-else class="lista" @click.stop>
@@ -137,10 +160,9 @@ const totalRecaudado = computed(() =>
       >
         <div class="tarjeta-encabezado">
           <h3>Tutores <span class="flecha">➔</span></h3>
-          <span class="contador">{{ totalTutores }}</span>
         </div>
 
-        <p v-if="estado.tutores.cargando" class="cargando">Conectando con la base de datos...</p>
+        <SkeletonLista v-if="estado.tutores.cargando" :filas="3" />
         <p v-else-if="estado.tutores.error" class="error">No se pudo cargar la información de tutores.</p>
         <p v-else-if="tutores.length === 0" class="vacio">Aún no hay tutores registrados.</p>
         <ul v-else class="lista" @click.stop>
@@ -165,10 +187,9 @@ const totalRecaudado = computed(() =>
       >
         <div class="tarjeta-encabezado">
           <h3>Clases <span class="flecha">➔</span></h3>
-          <span class="contador">{{ totalClases }}</span>
         </div>
 
-        <p v-if="estado.clases.cargando" class="cargando">Conectando con la base de datos...</p>
+        <SkeletonLista v-if="estado.clases.cargando" :filas="3" />
         <p v-else-if="estado.clases.error" class="error">No se pudo cargar la información de clases.</p>
         <p v-else-if="clases.length === 0" class="vacio">Aún no hay clases registradas.</p>
         <ul v-else class="lista" @click.stop>
@@ -198,10 +219,9 @@ const totalRecaudado = computed(() =>
       >
         <div class="tarjeta-encabezado">
           <h3>Pagos <span class="flecha">➔</span></h3>
-          <span class="contador">{{ formatoMoneda.format(totalRecaudado) }}</span>
         </div>
 
-        <p v-if="estado.pagos.cargando" class="cargando">Conectando con la base de datos...</p>
+        <SkeletonLista v-if="estado.pagos.cargando" :filas="3" />
         <p v-else-if="estado.pagos.error" class="error">No se pudo cargar la información de pagos.</p>
         <p v-else-if="pagos.length === 0" class="vacio">Aún no hay pagos registrados.</p>
         <ul v-else class="lista" @click.stop>
@@ -328,11 +348,6 @@ const totalRecaudado = computed(() =>
   transform: translateX(3px);
 }
 
-.contador {
-  color: #a0a0b0;
-  font-size: 0.85rem;
-}
-
 .lista {
   list-style: none;
   padding: 0;
@@ -385,10 +400,6 @@ const totalRecaudado = computed(() =>
 .etiqueta-mini--alerta { color: #ff6b6b; }
 .etiqueta-mini--ok { color: #2ecc71; }
 
-.cargando {
-  color: #8a2be2;
-  font-style: italic;
-}
 .error {
   color: #ff6b6b;
 }

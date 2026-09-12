@@ -15,7 +15,7 @@ const iniciarSesion = async () => {
 
   try {
     // Le pedimos a Supabase que nos loguee
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email: email.value,
       password: password.value
     })
@@ -56,6 +56,7 @@ const iniciarSesion = async () => {
         <p v-if="errorMsg" class="mensaje-error">{{ errorMsg }}</p>
 
         <button type="submit" class="btn-login" :disabled="cargando">
+          <span v-if="cargando" class="spinner" aria-hidden="true"></span>
           {{ cargando ? 'Verificando...' : 'Entrar al Sistema' }}
         </button>
       </form>
@@ -161,6 +162,10 @@ input:focus {
   cursor: pointer;
   transition: opacity 0.2s, transform 0.1s;
   margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
 }
 
 .btn-login:hover:not(:disabled) {
@@ -174,5 +179,27 @@ input:focus {
 .btn-login:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: giro 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2s;
+  }
+}
+
+@keyframes giro {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

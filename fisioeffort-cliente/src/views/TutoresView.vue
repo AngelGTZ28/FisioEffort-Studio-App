@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { apiFetch } from '../api'
+import SkeletonLista from '../components/SkeletonLista.vue'
 
 const tutores = ref([])
 const cargando = ref(true)
@@ -77,7 +78,7 @@ onMounted(() => {
       <!-- Columna Derecha: Lista -->
       <div class="panel">
         <h3>Directorio de Tutores</h3>
-        <p v-if="cargando" class="cargando">Cargando datos...</p>
+        <SkeletonLista v-if="cargando" :filas="4" />
         <p v-else-if="tutores.length === 0" class="vacio">Aún no hay tutores registrados.</p>
         <ul v-else class="lista">
           <li v-for="tutor in tutores" :key="tutor.id">
@@ -140,10 +141,6 @@ input:focus { border-color: #8a2be2; }
 }
 .btn-guardar:hover { opacity: 0.8; }
 
-.cargando {
-  color: #8a2be2;
-  font-style: italic;
-}
 .vacio {
   color: #a0a0b0;
   font-style: italic;

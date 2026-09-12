@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { apiFetch } from '../api'
+import SkeletonTarjetas from '../components/SkeletonTarjetas.vue'
 
 const pagos = ref([])
 const alumnos = ref([])
@@ -34,6 +35,44 @@ const formatoMoneda = new Intl.NumberFormat('es-MX', {
   style: 'currency',
   currency: 'MXN',
 })
+
+// --- Filtros del historial ---
+const modoFiltro = ref('historico') // 'historico' | 'mes' | 'periodo'
+const mesFiltro = ref('') // YYYY-MM
+const desdeFiltro = ref('') // YYYY-MM-DD
+const hastaFiltro = ref('') // YYYY-MM-DD
+
+const pagosFiltrados = computed(() => {
+  return pagos.value.filter((pago) => {
+    const fecha = String(pago.fecha_registro) // ISO 8601
+    if (modoFiltro.value === 'mes' && mesFiltro.value) {
+      return fecha.slice(0, 7) === mesFiltro.value
+    }
+    if (modoFiltro.value === 'periodo') {
+      if (!desdeFiltro.value || !hastaFiltro.value) return true
+      const dia = fecha.slice(0, 10)
+      return dia >= desdeFiltro.value && dia <= hastaFiltro.value
+    }
+    return true
+  })
+})
+
+const totalFiltrado = computed(() =>
+  pagosFiltrados.value.reduce((suma, p) => suma + Number(p.monto || 0), 0)
+)
+
+const filtroActivo = computed(
+  () =>
+    (modoFiltro.value === 'mes' && mesFiltro.value) ||
+    (modoFiltro.value === 'periodo' && desdeFiltro.value && hastaFiltro.value)
+)
+
+const limpiarFiltros = () => {
+  modoFiltro.value = 'historico'
+  mesFiltro.value = ''
+  desdeFiltro.value = ''
+  hastaFiltro.value = ''
+}
 
 // Cargar el historial de pagos
 const cargarPagos = async () => {
@@ -186,14 +225,48 @@ onMounted(() => {
       <!-- Columna Derecha: Historial de Pagos -->
       <div class="panel">
         <h3>Historial Reciente</h3>
-        <p v-if="cargando" class="cargando">Cargando la bóveda...</p>
+
+        <div class="filtros-historial">
+          <select v-model="modoFiltro" class="input-filtro">
+            <option value="historico">Histórico completo</option>
+            <option value="mes">Por mes</option>
+            <option value="periodo">Por periodo</option>
+          </select>
+
+          <input
+            v-if="modoFiltro === 'mes'"
+            v-model="mesFiltro"
+            type="month"
+            class="input-filtro"
+            aria-label="Mes a filtrar"
+          >
+
+          <template v-if="modoFiltro === 'periodo'">
+            <input v-model="desdeFiltro" type="date" class="input-filtro" aria-label="Fecha inicial">
+            <span class="filtro-sep">a</span>
+            <input v-model="hastaFiltro" type="date" class="input-filtro" aria-label="Fecha final">
+          </template>
+
+          <button v-if="filtroActivo" class="btn-limpiar" @click="limpiarFiltros">Limpiar</button>
+        </div>
+
+        <div v-if="filtroActivo" class="resumen-filtro">
+          {{ pagosFiltrados.length }}
+          {{ pagosFiltrados.length === 1 ? 'pago' : 'pagos' }} ·
+          {{ formatoMoneda.format(totalFiltrado) }}
+        </div>
+
+        <SkeletonTarjetas v-if="cargando" :tarjetas="4" tipo="pagos" />
 
         <div v-else class="lista-pagos">
           <div v-if="pagos.length === 0" class="sin-datos">
             Aún no hay pagos registrados.
           </div>
+          <div v-else-if="pagosFiltrados.length === 0" class="sin-datos">
+            Sin resultados para este filtro.
+          </div>
 
-          <div v-for="pago in pagos" :key="pago.id" class="tarjeta-pago">
+          <div v-for="pago in pagosFiltrados" v-else :key="pago.id" class="tarjeta-pago">
             <div class="pago-header">
               <h4>{{ pago.alumno_nombre }}</h4>
               <span class="monto-badge">{{ formatoMoneda.format(pago.monto) }}</span>
@@ -280,9 +353,51 @@ input:focus, select:focus { border-color: #8a2be2; }
 .btn-guardar:hover { opacity: 0.8; }
 .btn-guardar:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.cargando {
-  color: #8a2be2;
-  font-style: italic;
+/* Filtros del historial */
+.filtros-historial {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.input-filtro {
+  background-color: #23233b;
+  border: 1px solid #33334d;
+  color: #f5f5fa;
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  outline: none;
+  color-scheme: dark;
+  font-size: 0.9rem;
+}
+.input-filtro:focus { border-color: #00c3e3; }
+
+.filtro-sep { color: #a0a0b0; font-size: 0.9rem; }
+
+.btn-limpiar {
+  background: transparent;
+  border: 1px solid #ff6b6b;
+  color: #ff6b6b;
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.8rem;
+  transition: background-color 0.2s, color 0.2s;
+}
+.btn-limpiar:hover { background-color: #ff6b6b; color: #12121a; }
+
+.resumen-filtro {
+  background-color: #23233b;
+  border-left: 3px solid #00c3e3;
+  color: #00c3e3;
+  font-weight: bold;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
 }
 
 /* Buscador de alumno (mismo patrón que Clases/Alumnos) */

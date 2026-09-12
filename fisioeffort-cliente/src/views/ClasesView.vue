@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { apiFetch } from '../api'
+import SkeletonTarjetas from '../components/SkeletonTarjetas.vue'
 
 const clases = ref([])
 const alumnos = ref([])
@@ -223,7 +224,7 @@ onMounted(() => {
       <!-- Columna Derecha: Lista de Clases -->
       <div class="panel">
         <h3>Grupos Activos</h3>
-        <p v-if="cargando" class="cargando">Cargando datos...</p>
+        <SkeletonTarjetas v-if="cargando" :tarjetas="3" tipo="clases" />
         <p v-else-if="clases.length === 0" class="vacio">Aún no hay clases creadas.</p>
 
         <div v-else class="grid-clases">
@@ -310,10 +311,6 @@ input:focus, select:focus { border-color: #8a2be2; }
 .btn-guardar:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-guardar--cian { background-color: #00c3e3; color: #12121a; }
 
-.cargando {
-  color: #8a2be2;
-  font-style: italic;
-}
 .vacio {
   color: #a0a0b0;
   font-style: italic;

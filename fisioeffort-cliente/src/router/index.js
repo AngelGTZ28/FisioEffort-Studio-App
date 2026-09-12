@@ -44,7 +44,7 @@ const router = createRouter({
 })
 
 // CADENERO DE SUPABASE
-router.beforeEach(async (to, from) => {
+router.beforeEach(async (to, _from) => {
   // Le preguntamos directamente a Supabase si hay una sesión activa
   const { data } = await supabase.auth.getSession()
   const tieneSesion = data.session !== null

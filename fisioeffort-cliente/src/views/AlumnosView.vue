@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { apiFetch } from '../api'
+import SkeletonLista from '../components/SkeletonLista.vue'
 
 const alumnos = ref([])
 const tutores = ref([])
@@ -278,7 +279,7 @@ onMounted(() => { cargarDatos() })
           </div>
         </div>
 
-        <p v-if="cargando" class="cargando">Cargando datos...</p>
+        <SkeletonLista v-if="cargando" :filas="4" />
         <p
           v-else-if="(mostrarActivos ? alumnosActivos : alumnosInactivos).length === 0"
           class="vacio"
@@ -417,10 +418,6 @@ input[type="text"]:focus, input[type="date"]:focus {
 .nombre { font-weight: bold; color: white; }
 .tutor-info { font-size: 0.85rem; color: #00c3e3; }
 
-.cargando {
-  color: #8a2be2;
-  font-style: italic;
-}
 .vacio {
   color: #a0a0b0;
   font-style: italic;

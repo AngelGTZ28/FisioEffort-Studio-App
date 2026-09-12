@@ -59,6 +59,38 @@ body {
   color: #ffffff;
 }
 
+/* --- Scrollbars personalizados --- */
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a2e;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #00c3e3, #8a2be2);
+  border-radius: 8px;
+  border: 2px solid #1a1a2e;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #5fe3fa, #a86bf0);
+}
+
+::-webkit-scrollbar-corner {
+  background: #1a1a2e;
+}
+
+/* Firefox y Edge moderno */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #23233b #1a1a2e;
+}
+
 .app-container {
   display: flex;
   flex-direction: column;
