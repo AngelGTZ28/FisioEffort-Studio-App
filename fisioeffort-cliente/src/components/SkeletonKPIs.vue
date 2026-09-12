@@ -18,7 +18,7 @@ defineProps({
 <style scoped>
 .skeleton-kpis {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr;
   gap: 1.25rem;
   margin-top: 2.5rem;
   cursor: default;
@@ -32,11 +32,18 @@ defineProps({
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
+  min-width: 0;
 }
 
-@media (max-width: 900px) {
+@media (min-width: 640px) {
   .skeleton-kpis {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .skeleton-kpis {
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 </style>

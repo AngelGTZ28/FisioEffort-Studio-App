@@ -243,6 +243,10 @@ const cuposDisponibles = computed(() =>
   padding: 1.5rem;
   background-color: #12121f;
   min-height: 100%;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .encabezado h2 {
@@ -257,7 +261,7 @@ const cuposDisponibles = computed(() =>
 /* --- KPIs --- */
 .kpis {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr;
   gap: 1.25rem;
   margin-top: 2.5rem;
 }
@@ -270,16 +274,18 @@ const cuposDisponibles = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  min-width: 0;
 }
 
 .kpi--cian { border-top-color: #00c3e3; }
 .kpi--morado { border-top-color: #8a2be2; }
 
 .kpi-numero {
-  font-size: 2rem;
+  font-size: clamp(1.5rem, 4vw, 2rem);
   font-weight: 700;
   color: #ffffff;
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .kpi-etiqueta {
@@ -290,7 +296,7 @@ const cuposDisponibles = computed(() =>
 /* --- Tarjetas de detalle --- */
 .tarjetas {
   display: grid;
-  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  grid-template-columns: 1fr;
   gap: 1.5rem;
   margin-top: 2rem;
 }
@@ -301,6 +307,7 @@ const cuposDisponibles = computed(() =>
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
   border-left: 5px solid transparent;
+  min-width: 0;
 }
 
 .tarjeta--cian { border-left-color: #00c3e3; }
@@ -408,8 +415,15 @@ const cuposDisponibles = computed(() =>
   font-style: italic;
 }
 
-@media (max-width: 900px) {
+@media (min-width: 640px) {
   .kpis { grid-template-columns: repeat(2, 1fr); }
-  .tarjetas { grid-template-columns: 1fr; }
+}
+
+@media (min-width: 1024px) {
+  .kpis { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (min-width: 900px) {
+  .tarjetas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 </style>

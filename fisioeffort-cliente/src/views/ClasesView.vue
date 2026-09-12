@@ -368,7 +368,7 @@ input:focus, select:focus { border-color: #8a2be2; }
 }
 
 /* Tarjetas de Clases */
-.grid-clases { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+.grid-clases { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 1.5rem; }
 .tarjeta-clase {
   background-color: #23233b;
   padding: 1.5rem;
