@@ -2,10 +2,15 @@
 import { ref, onMounted, computed } from 'vue'
 import { apiFetch } from '../api'
 import SkeletonTarjetas from '../components/SkeletonTarjetas.vue'
+import { usePagosStore } from '../stores/pagos'
+import { useAlumnosStore } from '../stores/alumnos'
 
-const pagos = ref([])
-const alumnos = ref([])
-const cargando = ref(true)
+const pagosStore = usePagosStore()
+const alumnosStore = useAlumnosStore()
+
+const pagos = computed(() => pagosStore.pagos)
+const alumnos = computed(() => alumnosStore.alumnos)
+const cargando = computed(() => pagosStore.cargando || alumnosStore.cargando)
 
 const nuevoPago = ref({
   inscripcion: '',
@@ -20,7 +25,7 @@ const alumnoSeleccionado = ref(null)
 const mostrarDropdownAlumno = ref(false)
 
 const alumnosFiltrados = computed(() => {
-  const activos = alumnos.value.filter((a) => a.activo)
+  const activos = alumnosStore.alumnosActivos
   if (!busquedaAlumno.value) return activos
   return activos.filter((a) =>
     a.nombre_completo.toLowerCase().includes(busquedaAlumno.value.toLowerCase())
@@ -74,25 +79,11 @@ const limpiarFiltros = () => {
   hastaFiltro.value = ''
 }
 
-// Cargar el historial de pagos
-const cargarPagos = async () => {
-  try {
-    const respuesta = await apiFetch('/pagos/')
-    pagos.value = await respuesta.json()
-    cargando.value = false
-  } catch (error) {
-    console.error('Error al cargar pagos:', error)
-  }
-}
-
-// Cargar alumnos para el buscador del formulario
-const cargarAlumnos = async () => {
-  try {
-    const respuesta = await apiFetch('/alumnos/')
-    alumnos.value = await respuesta.json()
-  } catch (error) {
-    console.error('Error al cargar alumnos:', error)
-  }
+const cargarDatos = async (forzar = false) => {
+  await Promise.all([
+    pagosStore.fetchPagos(forzar),
+    alumnosStore.fetchAlumnos(forzar)
+  ])
 }
 
 const seleccionarAlumno = (alumno) => {
@@ -120,10 +111,13 @@ const registrarPago = async () => {
     })
 
     if (respuesta.ok) {
-      // Limpiamos el formulario y recargamos la lista
+      const pagoCreado = await respuesta.json()
+      // Actualización optimista: inyectamos el nuevo pago arriba de la lista
+      pagosStore.agregarPagoLocal(pagoCreado)
+      
+      // Limpiamos el formulario
       nuevoPago.value = { inscripcion: '', monto: '', mes_cubierto: '', metodo_pago: 'EFECTIVO' }
       limpiarSeleccionAlumno()
-      cargarPagos()
       alert('¡Pago registrado con éxito!')
     }
   } catch (error) {
@@ -132,8 +126,7 @@ const registrarPago = async () => {
 }
 
 onMounted(() => {
-  cargarPagos()
-  cargarAlumnos()
+  cargarDatos()
 })
 </script>
 
@@ -401,7 +394,11 @@ input:focus, select:focus { border-color: #8a2be2; }
 }
 
 /* Buscador de alumno (mismo patrón que Clases/Alumnos) */
-.buscador-personalizado { position: relative; }
+.buscador-personalizado {
+  position: relative;
+  max-width: 100%;
+  box-sizing: border-box;
+}
 .input-busqueda {
   background-color: #23233b;
   border: 1px solid #33334d;
@@ -410,6 +407,8 @@ input:focus, select:focus { border-color: #8a2be2; }
   border-radius: 6px;
   outline: none;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .input-busqueda:focus { border-color: #00c3e3; }
 
@@ -418,6 +417,7 @@ input:focus, select:focus { border-color: #8a2be2; }
   top: 100%;
   left: 0;
   width: 100%;
+  max-width: 100%;
   background-color: #1a1a2e;
   border: 1px solid #33334d;
   border-radius: 6px;
@@ -426,14 +426,18 @@ input:focus, select:focus { border-color: #8a2be2; }
   list-style: none;
   max-height: 200px;
   overflow-y: auto;
+  overflow-x: hidden;
   z-index: 10;
   box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  box-sizing: border-box;
 }
 .dropdown-lista li {
   padding: 0.8rem;
   cursor: pointer;
   border-bottom: 1px solid #23233b;
   color: white;
+  word-break: break-word;
+  white-space: normal;
 }
 .dropdown-lista li:hover { background-color: #8a2be2; }
 .sin-resultados {
@@ -449,6 +453,7 @@ input:focus, select:focus { border-color: #8a2be2; }
   cursor: pointer;
   text-align: right;
   margin-top: 0.3rem;
+  display: block;
 }
 
 /* Tarjetas de Pagos */

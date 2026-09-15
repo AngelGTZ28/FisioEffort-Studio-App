@@ -2,17 +2,21 @@
 import { ref, onMounted, computed } from 'vue'
 import { apiFetch } from '../api'
 import SkeletonTarjetas from '../components/SkeletonTarjetas.vue'
+import { useClasesStore } from '../stores/clases'
+import { useAlumnosStore } from '../stores/alumnos'
 
-const clases = ref([])
-const alumnos = ref([])
-const cargando = ref(true)
+const clasesStore = useClasesStore()
+const alumnosStore = useAlumnosStore()
+
+const clases = computed(() => clasesStore.clases)
+const alumnos = computed(() => alumnosStore.alumnos)
+const cargando = computed(() => clasesStore.cargando || alumnosStore.cargando)
 
 const nuevaClase = ref({
   nombre: '',
-  capacidad_maxima: 10 // Un valor por defecto razonable
+  capacidad_maxima: 10
 })
 
-// --- Formulario "Agregar alumno a clase" ---
 const claseSeleccionada = ref('')
 const tipoInscripcion = ref('REGULAR')
 const busquedaAlumno = ref('')
@@ -21,30 +25,18 @@ const mostrarDropdownAlumno = ref(false)
 const enviandoInscripcion = ref(false)
 
 const alumnosFiltrados = computed(() => {
-  const activos = alumnos.value.filter((a) => a.activo)
+  const activos = alumnosStore.alumnosActivos
   if (!busquedaAlumno.value) return activos
   return activos.filter((a) =>
     a.nombre_completo.toLowerCase().includes(busquedaAlumno.value.toLowerCase())
   )
 })
 
-const cargarClases = async () => {
-  try {
-    const respuesta = await apiFetch('/clases/')
-    clases.value = await respuesta.json()
-    cargando.value = false
-  } catch (error) {
-    console.error('Error al cargar clases:', error)
-  }
-}
-
-const cargarAlumnos = async () => {
-  try {
-    const respuesta = await apiFetch('/alumnos/')
-    alumnos.value = await respuesta.json()
-  } catch (error) {
-    console.error('Error al cargar alumnos:', error)
-  }
+const cargarDatos = async (forzar = false) => {
+  await Promise.all([
+    clasesStore.fetchClases(forzar),
+    alumnosStore.fetchAlumnos(forzar)
+  ])
 }
 
 const guardarClase = async () => {
@@ -56,7 +48,7 @@ const guardarClase = async () => {
 
     if (respuesta.ok) {
       nuevaClase.value = { nombre: '', capacidad_maxima: 10 }
-      cargarClases()
+      await clasesStore.fetchClases(true)
     }
   } catch (error) {
     console.error('Error al guardar clase:', error)
@@ -69,8 +61,6 @@ const seleccionarAlumno = (alumno) => {
   mostrarDropdownAlumno.value = false
 }
 
-// Extrae mensajes de error legibles de la respuesta de DRF,
-// ej. {"alumno": ["El alumno ya se encuentra inscrito..."]}
 function extraerMensajeError(datosError) {
   if (!datosError || typeof datosError !== 'object') {
     return 'No se pudo completar la inscripción.'
@@ -100,13 +90,13 @@ const inscribirAlumno = async () => {
 
     if (respuesta.ok) {
       alert(`${alumnoSeleccionado.value.nombre_completo} fue inscrito correctamente.`)
-      // Limpiamos el formulario de inscripción
       claseSeleccionada.value = ''
       tipoInscripcion.value = 'REGULAR'
       busquedaAlumno.value = ''
       alumnoSeleccionado.value = null
-      cargarClases()
-      cargarAlumnos()
+      
+      // Invalidar ambos stores porque cambian cupos e historial
+      await cargarDatos(true)
     } else {
       alert(extraerMensajeError(datos))
     }
@@ -128,7 +118,8 @@ const quitarDeClase = async (inscripcionId, alumnoNombre, claseNombre) => {
     })
 
     if (respuesta.ok) {
-      cargarClases()
+      // Invalidar caché
+      await cargarDatos(true)
     } else {
       alert('No se pudo quitar al alumno de la clase.')
     }
@@ -138,8 +129,7 @@ const quitarDeClase = async (inscripcionId, alumnoNombre, claseNombre) => {
 }
 
 onMounted(() => {
-  cargarClases()
-  cargarAlumnos()
+  cargarDatos()
 })
 </script>
 
@@ -247,7 +237,7 @@ onMounted(() => {
                 No hay alumnos inscritos aún.
               </span>
               <span v-for="alumno in clase.alumnos_inscritos" :key="alumno.inscripcion_id" class="badge-alumno">
-                {{ alumno.alumno_nombre }}
+                <span class="nombre-alumno">{{ alumno.alumno_nombre }}</span>
                 <button
                   class="quitar-alumno"
                   title="Quitar de esta clase"
@@ -264,27 +254,29 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.clases-container { padding: 1rem; }
-h2 { font-size: 2rem; }
+.clases-container { padding: 1rem; box-sizing: border-box; max-width: 100%; overflow-x: hidden; }
+h2 { font-size: 2rem; word-break: break-word; }
 .morado { color: #8a2be2; }
 .header-seccion { margin-bottom: 2rem; }
 .subtitulo { color: #a0a0b0; margin-top: 0.35rem; }
 
-.grid-layout { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: start; }
-.columna-formularios { display: flex; flex-direction: column; gap: 2rem; }
+.grid-layout { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: start; max-width: 100%; box-sizing: border-box; }
+.columna-formularios { display: flex; flex-direction: column; gap: 2rem; max-width: 100%; box-sizing: border-box; }
 
 .panel {
   background-color: #1a1a2e;
   padding: 2rem;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
-.panel h3 { color: #00c3e3; margin-bottom: 1.5rem; }
+.panel h3 { color: #00c3e3; margin-bottom: 1.5rem; word-break: break-word; }
 
 /* Formulario */
 .formulario { display: flex; flex-direction: column; gap: 1.5rem; }
-.input-group { display: flex; flex-direction: column; gap: 0.5rem; position: relative; }
+.input-group { display: flex; flex-direction: column; gap: 0.5rem; position: relative; max-width: 100%; box-sizing: border-box; }
 label { color: #a0a0b0; font-size: 0.9rem; }
 input, select {
   background-color: #23233b;
@@ -294,6 +286,7 @@ input, select {
   border-radius: 6px;
   outline: none;
   width: 100%;
+  box-sizing: border-box;
 }
 input:focus, select:focus { border-color: #8a2be2; }
 
@@ -306,6 +299,8 @@ input:focus, select:focus { border-color: #8a2be2; }
   border-radius: 6px;
   cursor: pointer;
   transition: opacity 0.2s;
+  width: 100%;
+  box-sizing: border-box;
 }
 .btn-guardar:hover { opacity: 0.8; }
 .btn-guardar:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -317,7 +312,11 @@ input:focus, select:focus { border-color: #8a2be2; }
 }
 
 /* Buscador de alumnos (mismo patrón que el buscador de tutores en AlumnosView) */
-.buscador-personalizado { position: relative; }
+.buscador-personalizado {
+  position: relative;
+  max-width: 100%;
+  box-sizing: border-box;
+}
 .input-busqueda {
   background-color: #23233b;
   border: 1px solid #33334d;
@@ -326,6 +325,8 @@ input:focus, select:focus { border-color: #8a2be2; }
   border-radius: 6px;
   outline: none;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .input-busqueda:focus { border-color: #00c3e3; }
 
@@ -334,6 +335,7 @@ input:focus, select:focus { border-color: #8a2be2; }
   top: 100%;
   left: 0;
   width: 100%;
+  max-width: 100%;
   background-color: #1a1a2e;
   border: 1px solid #33334d;
   border-radius: 6px;
@@ -342,14 +344,18 @@ input:focus, select:focus { border-color: #8a2be2; }
   list-style: none;
   max-height: 200px;
   overflow-y: auto;
+  overflow-x: hidden;
   z-index: 10;
   box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  box-sizing: border-box;
 }
 .dropdown-lista li {
   padding: 0.8rem;
   cursor: pointer;
   border-bottom: 1px solid #23233b;
   color: white;
+  word-break: break-word;
+  white-space: normal;
 }
 .dropdown-lista li:hover { background-color: #8a2be2; }
 .sin-resultados {
@@ -365,26 +371,36 @@ input:focus, select:focus { border-color: #8a2be2; }
   cursor: pointer;
   text-align: right;
   margin-top: 0.3rem;
+  display: block;
 }
 
 /* Tarjetas de Clases */
-.grid-clases { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 1.5rem; }
+.grid-clases { 
+  display: grid; 
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); 
+  gap: 1.5rem; 
+  width: 100%;
+  box-sizing: border-box;
+}
 .tarjeta-clase {
   background-color: #23233b;
   padding: 1.5rem;
   border-radius: 8px;
   border-left: 4px solid #00c3e3;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
-.header-tarjeta { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 1rem; }
-.header-tarjeta h4 { margin: 0; color: white; font-size: 1.1rem; }
+.header-tarjeta { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.header-tarjeta h4 { margin: 0; color: white; font-size: 1.1rem; word-break: break-word; flex: 1; }
 
-.badge { font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 12px; font-weight: bold; white-space: nowrap; }
+.badge { font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 12px; font-weight: bold; white-space: normal; text-align: center; word-break: keep-all; }
 .disponible { background-color: #2e8b57; color: white; }
 .lleno { background-color: #ff4d4d; color: white; }
 
 .info-cupo p { color: #a0a0b0; font-size: 0.9rem; margin-bottom: 1rem; }
 
-.alumnos-list { display: flex; flex-wrap: wrap; gap: 0.5rem; border-top: 1px solid #33334d; padding-top: 1rem; }
+.alumnos-list { display: flex; flex-wrap: wrap; gap: 0.5rem; border-top: 1px solid #33334d; padding-top: 1rem; max-width: 100%; box-sizing: border-box; }
 .badge-alumno {
   background-color: #33334d;
   color: #00c3e3;
@@ -394,6 +410,13 @@ input:focus, select:focus { border-color: #8a2be2; }
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.badge-alumno span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sin-alumnos { color: #a0a0b0; font-size: 0.85rem; font-style: italic; }
 
@@ -405,12 +428,23 @@ input:focus, select:focus { border-color: #8a2be2; }
   font-size: 0.95rem;
   line-height: 1;
   padding: 0 0.2rem;
+  flex-shrink: 0;
 }
 .quitar-alumno:hover { color: #ff4d4d; }
 
 @media (max-width: 900px) {
   .grid-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  .grid-clases {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+  .panel {
+    padding: 1.2rem;
   }
 }
 </style>

@@ -24,7 +24,7 @@ const cerrarSesion = async () => {
 
 <template>
   <div class="app-container">
-    <header v-if="route.name !== 'login'" class="navbar">
+    <header class="navbar" v-if="route.name !== 'login'">
       <div class="marca">
         <h1>Fisio<span class="cian">Effort</span> <span class="morado">Studio</span></h1>
         <span class="admin-badge">Panel de administración</span>
@@ -39,13 +39,12 @@ const cerrarSesion = async () => {
         <RouterLink to="/pagos">Pagos</RouterLink>
       </nav>
 
-      <button @click="cerrarSesion" class="btn-logout" aria-label="Cerrar sesión">
+      <button @click="cerrarSesion" class="btn-logout" title="Cerrar Sesión">
         <svg class="btn-logout__icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
           <polyline points="16 17 21 12 16 7" />
           <line x1="21" x2="9" y1="12" y2="12" />
         </svg>
-        <span>Cerrar Sesión</span>
       </button>
     </header>
 
@@ -118,6 +117,18 @@ body {
   overflow-x: hidden;
 }
 
+input, select, textarea {
+  font-size: 16px !important; /* Evita el auto-zoom en iOS Safari */
+}
+
+select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 body {
   background-color: #12121a;
   color: #ffffff;
@@ -177,6 +188,7 @@ body {
   max-width: 100%;
   box-sizing: border-box;
   border-bottom: 3px solid #00c3e3;
+  position: relative;
 }
 
 .marca {
@@ -243,20 +255,30 @@ body {
   }
 }
 
+@media (min-width: 1024px) {
+  .enlaces {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+
+
 /* --- Botón "Cerrar Sesión" compacto (arriba a la derecha) --- */
 .btn-logout {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  justify-content: center;
   background-color: transparent;
   color: #00f2fe;
   border: 1px solid #00f2fe;
-  padding: 0.4rem 0.8rem;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   border-radius: 8px;
   cursor: pointer;
-  font-weight: 700;
-  font-size: 0.85rem;
-  white-space: nowrap;
+  flex-shrink: 0;
   margin-left: auto;
   transition: all 0.2s ease;
 }
@@ -332,6 +354,11 @@ body {
   .navbar {
     padding: 1rem;
     align-items: center;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+  }
+  .marca {
+    flex: 1;
   }
   .main-content {
     padding: 1rem;

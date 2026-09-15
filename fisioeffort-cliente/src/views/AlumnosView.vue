@@ -2,11 +2,17 @@
 import { ref, onMounted, computed } from 'vue'
 import { apiFetch } from '../api'
 import SkeletonLista from '../components/SkeletonLista.vue'
+import { useAlumnosStore } from '../stores/alumnos'
+import { useTutoresStore } from '../stores/tutores'
+import { useClasesStore } from '../stores/clases'
 
-const alumnos = ref([])
-const tutores = ref([])
-const clases = ref([]) // <-- Nueva variable para las clases
-const cargando = ref(true)
+const alumnosStore = useAlumnosStore()
+const tutoresStore = useTutoresStore()
+const clasesStore = useClasesStore()
+
+const clases = computed(() => clasesStore.clases)
+
+const cargando = computed(() => alumnosStore.cargando || tutoresStore.cargando || clasesStore.cargando)
 
 // Control de las pestañas Activos / Inactivos
 const mostrarActivos = ref(true)
@@ -31,34 +37,26 @@ const enviandoInscripcionRapida = ref(false)
 
 // --- COMPUTED PARA FILTROS ---
 const tutoresFiltrados = computed(() => {
-  if (!busquedaTutor.value) return tutores.value
-  return tutores.value.filter(t => t.nombre_completo.toLowerCase().includes(busquedaTutor.value.toLowerCase()))
+  if (!busquedaTutor.value) return tutoresStore.tutores
+  return tutoresStore.tutores.filter(t => t.nombre_completo.toLowerCase().includes(busquedaTutor.value.toLowerCase()))
 })
 
-const alumnosActivos = computed(() => alumnos.value.filter(a => a.activo === true))
-const alumnosInactivos = computed(() => alumnos.value.filter(a => a.activo === false))
+const alumnosActivos = computed(() => alumnosStore.alumnosActivos)
+const alumnosInactivos = computed(() => alumnosStore.alumnosInactivos)
 
 // Clases en las que el alumno TODAVÍA no está inscrito (para no ofrecer duplicados)
 function clasesDisponiblesPara(alumno) {
   const idsActuales = alumno.clases_inscritas.map((c) => c.clase_id)
-  return clases.value.filter((c) => !idsActuales.includes(c.id))
+  return clasesStore.clases.filter((c) => !idsActuales.includes(c.id))
 }
 
 // --- FUNCIONES DE CARGA ---
-const cargarDatos = async () => {
-  try {
-    const [resAlumnos, resTutores, resClases] = await Promise.all([
-      apiFetch('/alumnos/'),
-      apiFetch('/tutores/'),
-      apiFetch('/clases/')
-    ])
-    alumnos.value = await resAlumnos.json()
-    tutores.value = await resTutores.json()
-    clases.value = await resClases.json()
-    cargando.value = false
-  } catch (error) {
-    console.error('Error al cargar datos:', error)
-  }
+const cargarDatos = async (forzar = false) => {
+  await Promise.all([
+    alumnosStore.fetchAlumnos(forzar),
+    tutoresStore.fetchTutores(forzar),
+    clasesStore.fetchClases(forzar)
+  ])
 }
 
 const seleccionarTutor = (tutor) => {
@@ -86,6 +84,13 @@ const guardarAlumno = async () => {
 
     if (resAlumno.ok) {
       const alumnoCreado = await resAlumno.json() // Extraemos el ID generado
+      
+      // Actualización optimista: inyectar el alumno en el store local inmediatamente
+      // Si no eligió clase, lo inyectamos ya con un array vacío para clases_inscritas
+      if (!alumnoCreado.clases_inscritas) {
+         alumnoCreado.clases_inscritas = []
+      }
+      alumnosStore.agregarAlumnoLocal(alumnoCreado)
 
       // 2. Si eligió una clase, creamos la Inscripción inmediatamente
       if (nuevaInscripcion.value.clase !== '') {
@@ -97,13 +102,14 @@ const guardarAlumno = async () => {
             tipo: nuevaInscripcion.value.tipo
           })
         })
+        // Como las inscripciones afectan clases_inscritas complejas, recargamos el store de alumnos
+        await alumnosStore.fetchAlumnos(true)
       }
 
-      // Limpiamos formularios y recargamos
+      // Limpiamos formularios
       nuevoAlumno.value = { nombre_completo: '', tutor: '', fecha_nacimiento: '', ha_tomado_clase_prueba: false }
       busquedaTutor.value = ''
       nuevaInscripcion.value = { clase: '', tipo: 'REGULAR' }
-      cargarDatos()
     }
   } catch (error) {
     console.error('Error al guardar:', error)
@@ -112,18 +118,19 @@ const guardarAlumno = async () => {
 
 // --- FUNCIÓN PARA DAR DE BAJA / REACTIVAR ---
 const cambiarEstadoAlumno = async (alumno) => {
-  // Confirmación por seguridad (opcional pero recomendada)
+  // Confirmación por seguridad
   const accion = alumno.activo ? 'dar de baja' : 'reactivar'
   if (!confirm(`¿Estás seguro de que deseas ${accion} a ${alumno.nombre_completo}?`)) return
 
   try {
     const respuesta = await apiFetch(`/alumnos/${alumno.id}/`, {
-      method: 'PATCH', // Usamos PATCH porque solo actualizaremos un campo, no todo el registro
-      body: JSON.stringify({ activo: !alumno.activo }) // Invertimos su estado actual
+      method: 'PATCH',
+      body: JSON.stringify({ activo: !alumno.activo })
     })
 
     if (respuesta.ok) {
-      cargarDatos() // Recargamos la lista para que desaparezca de los activos
+      // Cambio ultra-rápido en memoria, sin re-fetchear todos los alumnos
+      alumnosStore.cambiarEstadoLocal(alumno.id, !alumno.activo)
     } else {
       console.error('Error del servidor al actualizar')
     }
@@ -142,8 +149,6 @@ function cerrarFormClase() {
   alumnoEditandoClase.value = null
 }
 
-// Extrae mensajes de error legibles de la respuesta de DRF,
-// ej. {"clase": ["Esta clase ya ha alcanzado su capacidad máxima..."]}
 function extraerMensajeError(datosError) {
   if (!datosError || typeof datosError !== 'object') {
     return 'No se pudo completar la inscripción.'
@@ -173,7 +178,11 @@ const inscribirEnClase = async (alumno) => {
 
     if (respuesta.ok) {
       cerrarFormClase()
-      cargarDatos()
+      // Invalidar caché de alumnos para reflejar la nueva clase y cupos
+      await Promise.all([
+        alumnosStore.fetchAlumnos(true),
+        clasesStore.fetchClases(true)
+      ])
     } else {
       alert(extraerMensajeError(datos))
     }
@@ -195,7 +204,11 @@ const quitarDeClase = async (inscripcionId, alumnoNombre, claseNombre) => {
     })
 
     if (respuesta.ok) {
-      cargarDatos()
+      // Recargar alumnos y clases para reflejar el cupo recuperado y badges quitados
+      await Promise.all([
+        alumnosStore.fetchAlumnos(true),
+        clasesStore.fetchClases(true)
+      ])
     } else {
       alert('No se pudo quitar al alumno de la clase.')
     }
@@ -372,23 +385,28 @@ h2 { font-size: 2rem; }
   padding: 2rem;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
-.panel h3 { color: #8a2be2; margin-bottom: 1.5rem; }
+.panel h3 { color: #8a2be2; margin-bottom: 1.5rem; word-break: break-word; }
 
 .formulario { display: flex; flex-direction: column; gap: 1.5rem; }
-.input-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.input-group { display: flex; flex-direction: column; gap: 0.5rem; max-width: 100%; box-sizing: border-box; }
 label { color: #a0a0b0; font-size: 0.9rem; }
 
-input[type="text"], input[type="date"] {
+input[type="text"], input[type="date"], select {
   background-color: #23233b;
   border: 1px solid #33334d;
   color: white;
   padding: 0.8rem;
   border-radius: 6px;
   outline: none;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
-input[type="text"]:focus, input[type="date"]:focus {
+input[type="text"]:focus, input[type="date"]:focus, select:focus {
   border-color: #00c3e3;
 }
 
@@ -401,10 +419,12 @@ input[type="text"]:focus, input[type="date"]:focus {
   border-radius: 6px;
   cursor: pointer;
   transition: opacity 0.2s;
+  width: 100%;
+  box-sizing: border-box;
 }
 .btn-guardar:hover { opacity: 0.8; }
 
-.lista { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 1rem; }
+.lista { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 1rem; max-width: 100%; box-sizing: border-box; }
 .lista li {
   background-color: #23233b;
   padding: 1rem;
@@ -413,10 +433,12 @@ input[type="text"]:focus, input[type="date"]:focus {
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .info-alumno { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; flex: 1; }
-.nombre { font-weight: bold; color: white; }
-.tutor-info { font-size: 0.85rem; color: #00c3e3; }
+.nombre { font-weight: bold; color: white; word-break: break-word; }
+.tutor-info { font-size: 0.85rem; color: #00c3e3; word-break: break-word; }
 
 .vacio {
   color: #a0a0b0;
@@ -426,6 +448,8 @@ input[type="text"]:focus, input[type="date"]:focus {
 /* Buscador de Tutores */
 .buscador-personalizado {
   position: relative;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .input-busqueda {
@@ -436,6 +460,8 @@ input[type="text"]:focus, input[type="date"]:focus {
   border-radius: 6px;
   outline: none;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .input-busqueda:focus {
   border-color: #00c3e3;
@@ -555,6 +581,8 @@ input[type="text"]:focus, input[type="date"]:focus {
   background-color: #1a1a2e;
   border-radius: 8px;
   align-items: center;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .form-clase-rapida select {
   background-color: #23233b;
@@ -563,10 +591,14 @@ input[type="text"]:focus, input[type="date"]:focus {
   padding: 0.5rem;
   border-radius: 6px;
   outline: none;
+  max-width: 100%;
+  box-sizing: border-box;
+  flex: 1 1 0%;
+  min-width: 0;
 }
 .form-clase-rapida select:focus { border-color: #00c3e3; }
 
-.botones-form-rapida { display: flex; gap: 0.5rem; }
+.botones-form-rapida { display: flex; gap: 0.5rem; flex-wrap: wrap; max-width: 100%; box-sizing: border-box; }
 .btn-mini {
   border: none;
   padding: 0.5rem 0.9rem;
@@ -605,6 +637,29 @@ input[type="text"]:focus, input[type="date"]:focus {
 @media (max-width: 900px) {
   .grid-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .form-clase-rapida {
+    width: 100%;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+  .form-clase-rapida select {
+    width: 100%;
+    min-height: 42px;
+    font-size: 16px;
+    flex: none; /* overrides flex: 1 1 0% */
+  }
+  .botones-form-rapida {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .botones-form-rapida .btn-mini {
+    flex: 1;
+    text-align: center;
   }
 }
 </style>

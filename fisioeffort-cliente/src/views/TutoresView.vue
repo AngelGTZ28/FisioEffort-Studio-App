@@ -1,26 +1,22 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { apiFetch } from '../api'
 import SkeletonLista from '../components/SkeletonLista.vue'
+import { useTutoresStore } from '../stores/tutores'
 
-const tutores = ref([])
-const cargando = ref(true)
+const tutoresStore = useTutoresStore()
+
+const tutores = computed(() => tutoresStore.tutores)
+const cargando = computed(() => tutoresStore.cargando)
 
 const nuevoTutor = ref({
   nombre_completo: '',
   telefono: '',
-  correo: '' // Opcional, dependiendo de qué le pusiste a tu modelo
+  correo: ''
 })
 
-const cargarTutores = async () => {
-  try {
-    const respuesta = await apiFetch('/tutores/')
-    tutores.value = await respuesta.json()
-    cargando.value = false
-  } catch (error) {
-    console.error('Error al cargar tutores:', error)
-    cargando.value = false
-  }
+const cargarTutores = async (forzar = false) => {
+  await tutoresStore.fetchTutores(forzar)
 }
 
 const guardarTutor = async () => {
@@ -31,8 +27,9 @@ const guardarTutor = async () => {
     })
 
     if (respuesta.ok) {
+      const tutorCreado = await respuesta.json()
+      tutoresStore.agregarTutorLocal(tutorCreado)
       nuevoTutor.value = { nombre_completo: '', telefono: '', correo: '' }
-      cargarTutores() // Recarga la lista para ver al nuevo
     }
   } catch (error) {
     console.error('Error al guardar tutor:', error)

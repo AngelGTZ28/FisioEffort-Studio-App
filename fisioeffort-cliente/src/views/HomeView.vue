@@ -1,9 +1,13 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiFetch } from '../api'
 import SkeletonKPIs from '../components/SkeletonKPIs.vue'
 import SkeletonLista from '../components/SkeletonLista.vue'
+
+import { useAlumnosStore } from '../stores/alumnos'
+import { useTutoresStore } from '../stores/tutores'
+import { useClasesStore } from '../stores/clases'
+import { usePagosStore } from '../stores/pagos'
 
 const router = useRouter()
 
@@ -11,43 +15,32 @@ const irA = (ruta) => {
   router.push(ruta)
 }
 
-// Estado por sección: datos, carga y error, todo por separado
-// para que una sección lenta o caída no bloquee a las demás.
-const alumnos = ref([])
-const tutores = ref([])
-const clases = ref([])
-const pagos = ref([])
+const alumnosStore = useAlumnosStore()
+const tutoresStore = useTutoresStore()
+const clasesStore = useClasesStore()
+const pagosStore = usePagosStore()
 
-const estado = ref({
-  alumnos: { cargando: true, error: false },
-  tutores: { cargando: true, error: false },
-  clases: { cargando: true, error: false },
-  pagos: { cargando: true, error: false },
-})
+const alumnos = computed(() => alumnosStore.alumnos)
+const tutores = computed(() => tutoresStore.tutores)
+const clases = computed(() => clasesStore.clases)
+const pagos = computed(() => pagosStore.pagos)
 
-// Mientras alguna sección siga cargando, los KPIs muestran un skeleton
-// en lugar de números parciales.
-const kpisCargando = computed(() => Object.values(estado.value).some((s) => s.cargando))
+const estado = computed(() => ({
+  alumnos: { cargando: alumnosStore.cargando, error: false },
+  tutores: { cargando: tutoresStore.cargando, error: false },
+  clases: { cargando: clasesStore.cargando, error: false },
+  pagos: { cargando: pagosStore.cargando, error: false },
+}))
 
-async function cargarSeccion(nombre, url, destino) {
-  try {
-    const respuesta = await apiFetch(url)
-    if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`)
-    const datos = await respuesta.json()
-    destino.value = datos
-  } catch (error) {
-    console.error(`Error al cargar ${nombre}:`, error)
-    estado.value[nombre].error = true
-  } finally {
-    estado.value[nombre].cargando = false
-  }
-}
+const kpisCargando = computed(() => 
+  alumnosStore.cargando || tutoresStore.cargando || clasesStore.cargando || pagosStore.cargando
+)
 
 onMounted(() => {
-  cargarSeccion('alumnos', '/alumnos/', alumnos)
-  cargarSeccion('tutores', '/tutores/', tutores)
-  cargarSeccion('clases', '/clases/', clases)
-  cargarSeccion('pagos', '/pagos/', pagos)
+  alumnosStore.fetchAlumnos()
+  tutoresStore.fetchTutores()
+  clasesStore.fetchClases()
+  pagosStore.fetchPagos()
 })
 
 const formatoMoneda = new Intl.NumberFormat('es-MX', {
