@@ -5,10 +5,12 @@ import SkeletonLista from '../components/SkeletonLista.vue'
 import { useAlumnosStore } from '../stores/alumnos'
 import { useTutoresStore } from '../stores/tutores'
 import { useClasesStore } from '../stores/clases'
+import { useUiStore } from '../stores/ui'
 
 const alumnosStore = useAlumnosStore()
 const tutoresStore = useTutoresStore()
 const clasesStore = useClasesStore()
+const ui = useUiStore()
 
 const clases = computed(() => clasesStore.clases)
 
@@ -120,7 +122,8 @@ const guardarAlumno = async () => {
 const cambiarEstadoAlumno = async (alumno) => {
   // Confirmación por seguridad
   const accion = alumno.activo ? 'dar de baja' : 'reactivar'
-  if (!confirm(`¿Estás seguro de que deseas ${accion} a ${alumno.nombre_completo}?`)) return
+  const confirmado = await ui.mostrarConfirmacion(`¿Estás seguro de que deseas ${accion} a ${alumno.nombre_completo}?`, 'Confirmación')
+  if (!confirmado) return
 
   try {
     const respuesta = await apiFetch(`/alumnos/${alumno.id}/`, {
@@ -159,7 +162,7 @@ function extraerMensajeError(datosError) {
 
 const inscribirEnClase = async (alumno) => {
   if (!formClaseRapida.value.clase) {
-    alert('Selecciona una clase.')
+    await ui.mostrarAlerta('Selecciona una clase.', 'Atención')
     return
   }
 
@@ -184,18 +187,19 @@ const inscribirEnClase = async (alumno) => {
         clasesStore.fetchClases(true)
       ])
     } else {
-      alert(extraerMensajeError(datos))
+      await ui.mostrarAlerta(extraerMensajeError(datos), 'No se pudo inscribir')
     }
   } catch (error) {
     console.error('Error al inscribir en clase:', error)
-    alert('Error de red al inscribir al alumno.')
+    await ui.mostrarAlerta('Error de red al inscribir al alumno.', 'Error de red')
   } finally {
     enviandoInscripcionRapida.value = false
   }
 }
 
 const quitarDeClase = async (inscripcionId, alumnoNombre, claseNombre) => {
-  if (!confirm(`¿Quitar a ${alumnoNombre} de ${claseNombre}?`)) return
+  const confirmado = await ui.mostrarConfirmacion(`¿Quitar a ${alumnoNombre} de ${claseNombre}?`, 'Baja de Clase')
+  if (!confirmado) return
 
   try {
     const respuesta = await apiFetch(`/inscripciones/${inscripcionId}/`, {
@@ -210,7 +214,7 @@ const quitarDeClase = async (inscripcionId, alumnoNombre, claseNombre) => {
         clasesStore.fetchClases(true)
       ])
     } else {
-      alert('No se pudo quitar al alumno de la clase.')
+      await ui.mostrarAlerta('No se pudo quitar al alumno de la clase.', 'Error')
     }
   } catch (error) {
     console.error('Error al quitar de clase:', error)

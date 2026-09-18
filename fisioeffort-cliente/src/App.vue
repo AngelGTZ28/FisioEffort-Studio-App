@@ -1,6 +1,7 @@
 <script setup>
 import { RouterLink, RouterView, useRouter, useRoute } from 'vue-router'
 import { supabase } from './supabase'
+import CustomDialog from './components/CustomDialog.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -99,6 +100,8 @@ const cerrarSesion = async () => {
         <span>Pagos</span>
       </RouterLink>
     </nav>
+
+    <CustomDialog />
   </div>
 </template>
 

@@ -4,9 +4,11 @@ import { apiFetch } from '../api'
 import SkeletonTarjetas from '../components/SkeletonTarjetas.vue'
 import { usePagosStore } from '../stores/pagos'
 import { useAlumnosStore } from '../stores/alumnos'
+import { useUiStore } from '../stores/ui'
 
 const pagosStore = usePagosStore()
 const alumnosStore = useAlumnosStore()
+const ui = useUiStore()
 
 const pagos = computed(() => pagosStore.pagos)
 const alumnos = computed(() => alumnosStore.alumnos)
@@ -118,7 +120,7 @@ const registrarPago = async () => {
       // Limpiamos el formulario
       nuevoPago.value = { inscripcion: '', monto: '', mes_cubierto: '', metodo_pago: 'EFECTIVO' }
       limpiarSeleccionAlumno()
-      alert('¡Pago registrado con éxito!')
+      await ui.mostrarAlerta('¡Pago registrado con éxito!', 'Éxito')
     }
   } catch (error) {
     console.error('Error al registrar pago:', error)

@@ -241,3 +241,4 @@ yarn-error.log*
 
 # 5. Archivos del sistema operativo 
 .DS_Store
+gemini.md
